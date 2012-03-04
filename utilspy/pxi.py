@@ -22,7 +22,7 @@ class digitalout:
     def __str__(self):
         return str(self.physCh)+'\n'+str(self.dflts)+'\n'+str(self.num)
     def load(self):
-        sysfile = open('L:/software/apparatus3/conf/system.txt',"r")
+        sysfile = open('./system.txt',"r")
         while True:
             line = sysfile.readline()
             if line[0:len('DIGITAL_OUT')]=='DIGITAL_OUT':
@@ -60,7 +60,7 @@ class analogout:
     def __str__(self):
         return str(self.physCh)+'\n'+str(self.dflts)+'\n'+str(self.num)
     def load(self):
-        sysfile = open('L:/software/apparatus3/conf/system.txt',"r")
+        sysfile = open('./system.txt',"r")
         while True:
             line = sysfile.readline()
             if line[0:len('ANALOG_OUT')]=='ANALOG_OUT':
@@ -95,7 +95,7 @@ class device:
     def __str__(self):
         return str(self.trigout)+'\n'+str(self.trig)+'\n'+str(self.num)
     def load(self):
-        sysfile = open('L:/software/apparatus3/conf/system.txt',"r")
+        sysfile = open('./system.txt',"r")
         while True:
             line = sysfile.readline()
             if line[0:len('ANALOG_DEVICE')]=='ANALOG_DEVICE':
