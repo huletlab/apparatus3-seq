@@ -1,5 +1,8 @@
-"""Make sure the report file given by 
-   (L:/data/app3/Savedir)report(L:/data/app3/RunNumber).INI 
+"""Make sure the report file at
+   Savedir/reportRunNumber.INI 
+   
+   Savedir and RunNumber are specified in settings.INI
+   
    exists otherwise this code won't compile. 
 """
 __author__ = "Pedro M Duarte"
