@@ -1,0 +1,215 @@
+###########################################################
+#
+#---The digital outputs below are described by:
+#---PhysicalChannel     Name	DefaultState
+#
+#---The number of the channel corresponds to its position
+#---in this list, starting with 0 for the first one.
+#
+DIGITAL_OUT
+Dev1/port0/line0	motswitch		0
+Dev1/port0/line1	basler			0
+Dev1/port0/line2	uvprobe			0
+Dev1/port0/line3	beamflag		0
+Dev1/port0/line4	field		0
+Dev1/port0/line5	quick		0
+Dev1/port0/line6	probe		0
+Dev1/port0/line7	prshutter		1
+Dev1/port0/line8	slot2trig		0
+Dev1/port0/line9	dev1trig		0
+Dev1/port0/line10	zsshutter		1
+Dev1/port0/line11	motshutter		0
+Dev1/port0/line12	irttl1		0
+Dev1/port0/line13	irttl2		0
+Dev1/port0/line14	irttl3		0
+Dev1/port0/line15	odtttl		0
+Dev1/port0/line16	camerashut		0
+Dev1/port0/line17	cameratrig		0
+Dev1/port0/line18	uvaom1		0
+Dev1/port0/line19	feshbach		0
+Dev1/port0/line20	hfimg		0
+Dev1/port0/line21	hfquick		0
+Dev1/port0/line22	bragg		0
+Dev1/port0/line23	odtshut	0
+Dev1/port0/line24	odt7595		0
+Dev1/port0/line25	uvshutter		1
+Dev1/port0/line26	uvaom2		0
+Dev1/port0/line27	slot7trig		0
+Dev1/port0/line28	odt7580		0
+Dev1/port0/line29	greenttl1		0
+Dev1/port0/line30	greenttl2		0
+Dev1/port0/line31	greenttl3		0
+#
+#
+###########################################################
+#
+#---The digital outputs below are described by:
+#---PhysicalChannel 	Name	DefaultState
+#
+#---This list of channels is called extra digital because
+#---they are not part of the experimental sequence.
+#ldrttrig == MOT load rate trigger
+EXTRA_DIGITAL
+PXI1Slot2/port0/line0   p-00		0
+PXI1Slot2/port0/line1   p-01		0
+PXI1Slot2/port0/line2   p-02		0
+PXI1Slot2/port0/line3   p-03		0
+PXI1Slot2/port0/line4   p-04		0
+PXI1Slot2/port0/line5   p-05		0
+PXI1Slot2/port0/line6   servo		0
+PXI1Slot2/port0/line7   uvaomex		0
+#
+#
+###########################################################
+#
+#---ANALOG_OUT channels are triggered by a DIGITAL_OUT
+#---There is one trigger per ANALOG_DEVICE. This is specified
+#---in the ANALOG_DEVICE section.
+#
+#---The analog output channels below are described by:
+#---PhysicalChannel 	Name	    DefaultVoltage
+ANALOG_OUT
+PXI1Slot2/ao0	reppow			7.00
+PXI1Slot2/ao1	trappow			7.00
+PXI1Slot2/ao2	motpow			0.000
+PXI1Slot2/ao3	uvfppiezo		0.000
+PXI1Slot2/ao4	uv1freq			7.600
+PXI1Slot2/ao5	odtpow			0.000
+PXI1Slot2/ao6	bfield			0.000
+PXI1Slot2/ao7	uvdet			3.744
+Dev1/ao0	repdet			5.000
+Dev1/ao1	trapdet			4.000
+Dev1/ao2	uvpow2			0.0
+Dev1/ao3	uvpow			6.0
+PXI1Slot7/ao0	ir1pow		0.00
+PXI1Slot7/ao1	ir2pow		0.00
+PXI1Slot7/ao2	ir3pow		0.00
+PXI1Slot7/ao3	greenpow1		0.00
+PXI1Slot7/ao4	greenpow2		0.00
+PXI1Slot7/ao5	greenpow3		0.00
+PXI1Slot7/ao6	ipganalog	10.00
+PXI1Slot7/ao7	slot7ao7		0.00
+#
+#
+###########################################################
+#
+#---The analog devices below are described by:
+#---
+#---DeviceName	Trig(Out)	Trig(In)
+#---
+#---Trig(Out) is the DIGITAL_OUT that will trigger
+#---this device. It is specified with the name, according to
+#---the DIGITAL_OUT section above.
+#---
+#---Trig(In) is the PFI line that receives the trigger pulse.
+#---You must connect the Trig(Out) to the Trig(In) in the
+#---breakout panel with a coaxial cable.
+#
+ANALOG_DEVICE
+PXI1Slot2	slot2trig		/PXI1Slot2/PFI2
+Dev1		dev1trig		/PXI1Slot2/PFI7
+PXI1Slot7	slot7trig		/PXI1Slot7/PFI7
+#
+#
+###########################################################
+#
+#---DIGITAL_SLAVE channels are triggered by a DIGITAL_OUT
+#---DIGITAL_SLAVE channels are part of a DIGITAL_DEVICE.
+#---There is one trigger per DIGITAL__DEVICE. This is specified
+#---in the DIGITAL_DEVICE section.
+#
+#---The digital slave channels below are described by:
+#---PhysicalChannel     Name	DefaultState
+DIGITAL_SLAVE
+Dev1/port1/line0		s00-00		0
+Dev1/port1/line1		s00-01		0
+Dev1/port1/line2		s00-02		0
+Dev1/port1/line3		s00-03		0
+Dev1/port1/line4		s00-04		0
+Dev1/port1/line5		s00-05		0
+Dev1/port1/line6		s00-06		0
+Dev1/port1/line7		s00-07		1
+PXI1Slot7/port0/line0   s01-00		0
+PXI1Slot7/port0/line1   s01-01		0
+PXI1Slot7/port0/line2   s01-02		0
+PXI1Slot7/port0/line3   s01-03		0
+PXI1Slot7/port0/line4   s01-04		0
+PXI1Slot7/port0/line5   s01-05		0
+PXI1Slot7/port0/line6   s01-06		0
+PXI1Slot7/port0/line7   s01-07		0
+#
+#
+###########################################################
+#
+#---The digital devices below are described by:
+#---
+#---DeviceName	Trig(Out)	Trig(In)
+#---
+#---Trig(Out) is the DIGITAL_OUT that will trigger
+#---this device. It is specified with the name, according to
+#---the DIGITAL_OUT section above.
+#---
+#---Trig(In) is the PFI line that receives the trigger pulse.
+#---You must connect the Trig(Out) to the Trig(In) in the
+#---breakout panel with a coaxial cable.
+#
+DIGITAL_DEVICE
+Dev1		dev1digtrig			/Dev1/PFI10
+PXI1Slot7	slot7digtrig		/PXI1Slot7/PFI2
+#
+#
+###########################################################
+#
+#---The line trigger input channel is defined below:
+LINE_TRIGGER
+/Dev1/PFI9
+#
+#
+###########################################################
+#
+#---The analog inputs below are described by:
+#---PhysicalChannel 	Name	Min	Max	InputConfig
+#
+#---The InputConfig is NRSE:10078;
+#
+ANALOG_IN
+Dev1/ai0	omegatc	-10.000	10.000	10078
+Dev1/ai1	motpd	  0.000	5.000	10078
+Dev1/ai2	heatpipe323	-10.000	10.000	10078
+Dev1/ai3	pirani323	-10.000	10.000	10078
+Dev1/ai4	pirani671	-10.000	10.000	10078
+Dev1/ai5	motpower	-10.000	10.000	10078
+Dev1/ai6	tacal	-10.000	10.000	10078
+Dev1/ai7	nc-07	-10.000	10.000	10078
+Dev1/ai8	nc-08	-5.00	5.00	10078
+Dev1/ai9	nc-09	-10.000	10.000	10078
+Dev1/ai10	nc-10	-10.000	10.000	10078
+Dev1/ai11	zsmaster	-10.000	10.000	10078
+Dev1/ai12	motmaster	-10.000	10.000	10078
+Dev1/ai13	nc-13	-10.000	10.000	10078
+Dev1/ai14	nc-14	-10.000	10.000	10078
+Dev1/ai15	nc-15	-10.000	10.000	10078
+Dev1/ai16	nc-16	-10.000 10.000	10078
+Dev1/ai17	nc-17	-10.000 10.000	10078
+Dev1/ai18	nc-18	-10.000	10.000	10078
+Dev1/ai19	nc-19	-10.000	10.000	10078
+Dev1/ai20	nc-20	-10.000	10.000	10078
+Dev1/ai21	nc-21	-10.000	10.000	10078
+Dev1/ai22	nc-22	-10.000	10.000	10078
+Dev1/ai23	nc-23	-10.000	10.000	10078
+Dev1/ai24	nc-24	-10.000	10.000	10078
+Dev1/ai25	nc-25	-10.000	10.000	10078
+Dev1/ai26	nc-26	-10.000	10.000	10078
+Dev1/ai27	nc-27	-10.000	10.000	10078
+Dev1/ai28	nc-28	-10.000	10.000	10078
+Dev1/ai29	nc-29	-10.000	10.000	10078
+Dev1/ai30	nc-30	-10.000	10.000	10078
+Dev1/ai31	nc-31	-10.000	10.000	10078
+#
+#---Always put a line with '#' before and after each section.
+
+
+
+
+
+
