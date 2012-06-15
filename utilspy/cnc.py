@@ -109,48 +109,6 @@ def imagingRamps(motpow, repdet, trapdet, reppow, trappow, bfield,camera):
 	return motpow, repdet, trapdet, reppow, trappow, bfield, maxDT
 
 
-def uvzsload_imaging():
-	# Initialize channels to MOT SS values and with cncstepsize
-	ss=f('CNC','cncstepsize')
-	motpow   = wfm.wave('motpow', f('MOT','motpow')   ,ss)
-	repdet   = wfm.wave('repdet', f('MOT','repdetSS') ,ss)
-	trapdet  = wfm.wave('trapdet',f('MOT','trapdetSS'),ss)
-	reppow   = wfm.wave('reppow', f('MOT','reppowSS') ,ss)
-	trappow  = wfm.wave('trappow',f('MOT','trappowSS'),ss)
-	bfield   = wfm.wave('bfield', f('MOT','bfield')   ,ss)
-	
-	sec='ZSLOAD'
-	
-	#Insert bfield imaging value at release
-	bfdt = 0.0
-	bfield.linear(f(sec,'imgbfield'),bfdt)
-	
-	#Insert AOM imaging values 30us after release
-	imgdt=0.03
-	motpow.appendhold(imgdt)
-	repdet.appendhold(imgdt)
-	trapdet.appendhold(imgdt)
-	reppow.appendhold(imgdt)
-	trappow.appendhold(imgdt)
-	
-	motpow.linear( f(sec,'imgpow'),    0.0)
-	#repdet.linear( f(sec,'imgdetrep'), 0.0)
-	repdet.linear( f(sec,'imgdettrap'), 0.0)
-	trapdet.linear(f(sec,'imgdettrap'),0.0)
-	reppow.linear( f(sec,'imgpowrep'), 0.0)
-	trappow.linear(f(sec,'imgpowtrap'),0.0)
-
-	maxDT = max( motpow.dt(), repdet.dt(), trapdet.dt(), bfield.dt(), reppow.dt(), trappow.dt())
-
-	motpow.extend(maxDT)
-	repdet.extend(maxDT)
-	trapdet.extend(maxDT)
-	bfield.extend(maxDT)
-	reppow.extend(maxDT)
-	trappow.extend(maxDT)
-	
-	return motpow, repdet, trapdet, reppow, trappow, bfield
-
 def imagingRamps_nobfield(motpow, repdet, trapdet, reppow, trappow,camera):
 	ss=f('CNC','cncstepsize')
 	

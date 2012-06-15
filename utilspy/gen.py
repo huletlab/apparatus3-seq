@@ -48,6 +48,14 @@ def initial(s):
 	s.digichg('uvshutter',0)
 	s.digichg('uvaom1',1)
 	s.digichg('uvaom2',1)
+	s.digichg('irttl1',0)
+	s.digichg('irttl2',0)
+	s.digichg('irttl3',0)
+	s.digichg('greenttl1',0)
+	s.digichg('greenttl2',0)
+	s.digichg('greenttl3',0)
+	s.digichg('ipgttl',1)
+	s.digichg('brshutter',1)
 	return s
 	
 def releaseMOT(s):
@@ -83,6 +91,14 @@ def shutdown(s):
 	s.digichg('uvshutter',0)
 	s.digichg('odtttl',0)
 	s.digichg('uvprobe',0)
+	s.digichg('irttl1',0)
+	s.digichg('irttl2',0)
+	s.digichg('irttl3',0)
+	s.digichg('greenttl1',0)
+	s.digichg('greenttl2',0)
+	s.digichg('greenttl3',0)
+	s.digichg('ipgttl',1)
+	s.digichg('brshutter',1)
 	return s
 	
 def setphase(s):

@@ -13,7 +13,7 @@ Dev1/port0/line2	uvprobe			0
 Dev1/port0/line3	beamflag		0
 Dev1/port0/line4	field		0
 Dev1/port0/line5	quick		0
-Dev1/port0/line6	probe		0
+Dev1/port0/line6	odtshut		0
 Dev1/port0/line7	prshutter		1
 Dev1/port0/line8	slot2trig		0
 Dev1/port0/line9	dev1trig		0
@@ -23,14 +23,14 @@ Dev1/port0/line12	irttl1		0
 Dev1/port0/line13	irttl2		0
 Dev1/port0/line14	irttl3		0
 Dev1/port0/line15	odtttl		0
-Dev1/port0/line16	camerashut		0
-Dev1/port0/line17	cameratrig		0
+Dev1/port0/line16	broken		0
+Dev1/port0/line17	camerashut		0
 Dev1/port0/line18	uvaom1		0
 Dev1/port0/line19	feshbach		0
 Dev1/port0/line20	hfimg		0
 Dev1/port0/line21	hfquick		0
 Dev1/port0/line22	bragg		0
-Dev1/port0/line23	odtshut	0
+Dev1/port0/line23	probe	0
 Dev1/port0/line24	odt7595		0
 Dev1/port0/line25	uvshutter		1
 Dev1/port0/line26	uvaom2		0
@@ -39,6 +39,14 @@ Dev1/port0/line28	odt7580		0
 Dev1/port0/line29	greenttl1		0
 Dev1/port0/line30	greenttl2		0
 Dev1/port0/line31	greenttl3		0
+PXI1Slot7/port0/line0   manta		0
+PXI1Slot7/port0/line1   cameratrig		0
+PXI1Slot7/port0/line2   brshutter		1
+PXI1Slot7/port0/line3   ipgttl		0
+PXI1Slot7/port0/line4   rfttl		0
+PXI1Slot7/port0/line5   s01-05		0
+PXI1Slot7/port0/line6   s01-06		0
+PXI1Slot7/port0/line7   s01-07		0
 #
 #
 ###########################################################
@@ -109,60 +117,6 @@ ANALOG_DEVICE
 PXI1Slot2	slot2trig		/PXI1Slot2/PFI2
 Dev1		dev1trig		/PXI1Slot2/PFI7
 PXI1Slot7	slot7trig		/PXI1Slot7/PFI7
-#
-#
-###########################################################
-#
-#---DIGITAL_SLAVE channels are triggered by a DIGITAL_OUT
-#---DIGITAL_SLAVE channels are part of a DIGITAL_DEVICE.
-#---There is one trigger per DIGITAL__DEVICE. This is specified
-#---in the DIGITAL_DEVICE section.
-#
-#---The digital slave channels below are described by:
-#---PhysicalChannel     Name	DefaultState
-DIGITAL_SLAVE
-Dev1/port1/line0		s00-00		0
-Dev1/port1/line1		s00-01		0
-Dev1/port1/line2		s00-02		0
-Dev1/port1/line3		s00-03		0
-Dev1/port1/line4		s00-04		0
-Dev1/port1/line5		s00-05		0
-Dev1/port1/line6		s00-06		0
-Dev1/port1/line7		s00-07		1
-PXI1Slot7/port0/line0   s01-00		0
-PXI1Slot7/port0/line1   s01-01		0
-PXI1Slot7/port0/line2   s01-02		0
-PXI1Slot7/port0/line3   s01-03		0
-PXI1Slot7/port0/line4   s01-04		0
-PXI1Slot7/port0/line5   s01-05		0
-PXI1Slot7/port0/line6   s01-06		0
-PXI1Slot7/port0/line7   s01-07		0
-#
-#
-###########################################################
-#
-#---The digital devices below are described by:
-#---
-#---DeviceName	Trig(Out)	Trig(In)
-#---
-#---Trig(Out) is the DIGITAL_OUT that will trigger
-#---this device. It is specified with the name, according to
-#---the DIGITAL_OUT section above.
-#---
-#---Trig(In) is the PFI line that receives the trigger pulse.
-#---You must connect the Trig(Out) to the Trig(In) in the
-#---breakout panel with a coaxial cable.
-#
-DIGITAL_DEVICE
-Dev1		dev1digtrig			/Dev1/PFI10
-PXI1Slot7	slot7digtrig		/PXI1Slot7/PFI2
-#
-#
-###########################################################
-#
-#---The line trigger input channel is defined below:
-LINE_TRIGGER
-/Dev1/PFI9
 #
 #
 ###########################################################

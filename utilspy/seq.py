@@ -193,6 +193,20 @@ class sequence:
 		for the event inside the event itself.  
 		"""
 	def __init__(self,step=0.01):
+		clk=seqconf.clockrate()
+		print "----- INITIALIZING SEQUENCE: -----"
+		print "  Clock rate = %d Hz" % (clk)
+		print "  SEQ:stepsize should be (2+n)*(%.1f us), where n=0,1,2,..." % (1.e6/clk)
+		print "  SEQ:stepsize is %.1f us" % (step*1.e3)
+		n_int = 1e3*step/(1e6/clk) - 2 
+		if n_int >= 0 and abs(n_int % 1) <= 0.000001:
+			print "  SEQ:stepsize is good!\n"
+		else:
+			print "\n  !!!! SEQ:stepsize is bad !!!! "
+			print "  Please change SEQ:stepsize or change the base clock rate in settings.INI"  
+			print "  Program will be stopped. \n"
+			exit(1)
+		
 		self.tcur=0.0 #The current time in ms.
 		#The first stch is created. This has the default states
 		#as specified in 'system.txt' and a time=0.0
@@ -276,7 +290,7 @@ class sequence:
 		# The test statment below was used to show that testing equalty ( == ) is not good enough
 		# due to python's floating point representation... can lead to errors.  So equal values
 		# are defined as values that differ by less than 1e-4 or 100 ns. 
-		#~print '----> Current time = %f :: New chg time = %f  ::  duplicate? = %d :: veryclose? = %d' % (self.chgs[-1].time, self.tcur, self.chgs[-1].time ==self.tcur, abs(self.chgs[-1].time - self.tcur)<0.0001)
+		#print '----> Current time = %f :: New chg time = %f  ::  duplicate? = %d :: veryclose? = %d' % (self.chgs[-1].time, self.tcur, self.chgs[-1].time ==self.tcur, abs(self.chgs[-1].time - self.tcur)<0.0001)
 		
 		if self.chgs[-1].time > self.tcur:
 			if verbose:
@@ -289,7 +303,8 @@ class sequence:
 			for index in range(len(self.chgs)):
 				if self.chgs[index].time < self.tcur:
 					stch_tcur=index
-				if self.chgs[index].time == self.tcur:
+				#if self.chgs[index].time == self.tcur:
+				if abs(self.chgs[index].time - self.tcur) < 1e-4:
 					stch_tcur=index	  
 					same_time = True;
 			
@@ -443,8 +458,8 @@ class sequence:
 			
 		#print("...end adding waveforms.")
 		
-		self.analogwfm(step,aouts)
-		return 0
+		status = self.analogwfm(step,aouts)
+		return status
 	
 	def wait(self,delay):
 		""" wait changes the current time.

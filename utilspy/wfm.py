@@ -54,15 +54,22 @@ class wave:
 		"""Returns the number of samples on the wfm"""
 		return (self.y.size)
 
+
 	
 	def linear(self,vf,dt,volt=-11):
 		"""Adds linear ramp to waveform, starts at current last 
 			value and goes to 'vf' in 'dt' 
 			CAREFUL: This is linear in voltage, not in phys"""
-		if volt != -11:
+		if self.name == 'ir1pow':
+			print "Conversion flag = %d, vf_in=%f" % (volt,vf)
+		if volt >= 0 and volt <= 10.0:
 			vf=volt
-		else:
+		elif volt == -11:
 			vf=cnv(self.name,vf)
+			
+		if self.name == 'ir1pow':
+			print cnv(self.name,vf)
+			print "Conversion flag = %d, vf_out=%f" % (volt,vf)
 		v0=self.last()
 		if dt == 0.0:
 			self.y[ self.y.size -1] = vf

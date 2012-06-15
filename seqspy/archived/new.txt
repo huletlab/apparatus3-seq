@@ -1,0 +1,1 @@
+19 = UVRED Lightshift, - Loads UVRED into ODT and evaporates at high field%n%n- Recompresses to [UVLS:cpow] then goes to a magnetic field [UVLS:bpulse] to do the spectroscopy%n%n- Goes to scattering length zero-crossing to do absorption imaging. 

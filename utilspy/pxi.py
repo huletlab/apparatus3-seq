@@ -2,6 +2,7 @@ def linenum(name):
     """ linenum looks in the system.txt file for the line number
         corresponding to the given channel name. """
     #space for actually doing this
+    #04/29/2012 - pmd - I don't remember why I wanted this...
     return 1
 
 class digitalout:
@@ -120,3 +121,7 @@ if __name__=="__main__":
     test=digitalout()
     test.load()
     print test
+    test2=analogout()
+    test2.load()
+    print test2
+    

@@ -13,6 +13,117 @@ def f(sec,key):
 	global report
 	return float(report[sec][key])
 	
+def crossbeam_evap(s, toENDBFIELD):
+	# Add evaporation ramp to ODT, returns sequence right at the end of evaporation
+	free = float(report['EVAP']['free'])
+	image= float(report['EVAP']['image'])
+	buffer=10.0 #Time needed to re-latch the trigger for the AOUTS
+	if free < buffer + toENDBFIELD :
+		print 'Need at list ' + str(buffer) + 'ms of free evap before evaporation can be triggered'
+		print 'Currently ramps end at %f , and free is %f' % (toENDBFIELD,free)
+		exit(1)
+	s.wait(free)
+	odtpow, ENDEVAP, cpowend, ipganalog = odt_evap(image)
+	evap_ss = float(report['EVAP']['evapss'])
+	#s.analogwfm_add(evap_ss,[odtpow,ipganalog])
+	s.analogwfm_add(evap_ss,[odtpow])
+	# ENDEVAP should be equal to image
+	s.wait(image)
+	return s, cpowend
+
+def crossbeam_evap_into_lattice(s, toENDBFIELD):
+	# Add evaporation ramp to ODT, returns sequence right at the end of evaporation
+	free = float(report['EVAP']['free'])
+	image= float(report['EVAP']['image'])
+	buffer=10.0 #Time needed to re-latch the trigger for the AOUTS
+	if free < buffer + toENDBFIELD :
+		print 'Need at list ' + str(buffer) + 'ms of free evap before evaporation can be triggered'
+		print 'Currently ramps end at %f , and free is %f' % (toENDBFIELD,free)
+		exit(1)
+	s.wait(free)
+	odtpow, ENDEVAP, cpowend, ipganalog = odt_evap(image)
+	# ENDEVAP should be equal to image
+	evap_ss = float(report['EVAP']['evapss'])
+	
+	
+	# Ramp up IR and green beams
+	irramp1 = float(report['INTOLATTICE']['irrampdt1'])
+	irramp2 = float(report['INTOLATTICE']['irrampdt2'])
+	irramp3 = float(report['INTOLATTICE']['irrampdt3'])
+	irdelay1 = float(report['INTOLATTICE']['irdelay1'])
+	irdelay2 = float(report['INTOLATTICE']['irdelay2'])
+	irdelay3 = float(report['INTOLATTICE']['irdelay3'])
+
+	ir1  = wfm.wave('ir1pow', 0., evap_ss)
+	ir2  = wfm.wave('ir2pow', 0., evap_ss)
+	ir3  = wfm.wave('ir3pow', 0., evap_ss)
+	
+	loadtime = float(report['INTOLATTICE']['loadtime'])
+	
+	ir1.appendhold( ENDEVAP - loadtime)
+	ir2.appendhold( ENDEVAP - loadtime)
+	ir3.appendhold( ENDEVAP - loadtime)
+
+	ir1.appendhold(irdelay1)
+	ir2.appendhold(irdelay2)
+	ir3.appendhold(irdelay3)
+
+	ir1.linear(float(report['INTOLATTICE']['irpow1']),irramp1)
+	ir2.linear(float(report['INTOLATTICE']['irpow2']),irramp2)
+	ir3.linear(float(report['INTOLATTICE']['irpow3']),irramp3)
+
+	gr1  = wfm.wave('greenpow1', 0., evap_ss)
+	gr2  = wfm.wave('greenpow2', 0., evap_ss)
+	gr3  = wfm.wave('greenpow3', 0., evap_ss)
+	
+	gr1.appendhold( ENDEVAP - loadtime)
+	gr2.appendhold( ENDEVAP - loadtime)
+	gr3.appendhold( ENDEVAP - loadtime)
+
+	grdelay1 = float(report['INTOLATTICE']['grdelay1'])
+	grdelay2 = float(report['INTOLATTICE']['grdelay2'])
+	grdelay3 = float(report['INTOLATTICE']['grdelay3'])
+
+	gr1.appendhold(grdelay1)
+	gr2.appendhold(grdelay2)
+	gr3.appendhold(grdelay3)
+
+	grramp1 = float(report['INTOLATTICE']['grrampdt1'])
+	grramp2 = float(report['INTOLATTICE']['grrampdt2'])
+	grramp3 = float(report['INTOLATTICE']['grrampdt3'])
+	gr1.linear(float(report['INTOLATTICE']['grpow1']),grramp1)
+	gr2.linear(float(report['INTOLATTICE']['grpow2']),grramp2)
+	gr3.linear(float(report['INTOLATTICE']['grpow3']),grramp3)
+
+	
+	#end = s.analogwfm_add(evap_ss,[odtpow,ipganalog,ir1,ir2,ir3,gr1,gr2,gr3])
+	end = s.analogwfm_add(evap_ss,[odtpow,ir1,ir2,ir3,gr1,gr2,gr3])
+	
+	
+	s.wait(image-loadtime)
+	
+	# Turn on IR lattice beams
+	s.wait(irdelay1)
+	s.digichg('irttl1', float(report['INTOLATTICE']['ir1']) )
+	s.wait(-irdelay1+irdelay2)
+	s.digichg('irttl2', float(report['INTOLATTICE']['ir2']) )
+	s.wait(-irdelay2+irdelay3)
+	s.digichg('irttl3', float(report['INTOLATTICE']['ir3']) )
+	s.wait(-irdelay3)
+
+	s.wait(grdelay1)
+	s.digichg('greenttl1', float(report['INTOLATTICE']['gr1']) )
+	s.wait(-grdelay1+grdelay2)
+	s.digichg('greenttl2', float(report['INTOLATTICE']['gr2']) )
+	s.wait(-grdelay2+grdelay3)
+	s.digichg('greenttl3', float(report['INTOLATTICE']['gr3']) )
+	s.wait(-grdelay3)
+	
+	s.wait(loadtime + end - image)	
+	
+	return s
+	
+	
 def odt_evap(image):
 	evap_ss = f('EVAP','evapss')
 
@@ -138,7 +249,8 @@ def odt_trapfreq(odtpow0):
 	odtpow.extend( bfield.dt() )
 	#odtpow.SineMod( f('TRAPFREQ','cpow'), f('TRAPFREQ','moddt'), f('TRAPFREQ','modfreq'), f('TRAPFREQ','moddepth'))
 	#odtpow.SineMod2( f('TRAPFREQ','cpow'), f('TRAPFREQ','moddt'), f('TRAPFREQ','modfreq'), f('TRAPFREQ','moddepth'))
-	odtpow.SineMod3( f('TRAPFREQ','cpow'), f('TRAPFREQ','moddt'), f('TRAPFREQ','modfreq'), f('TRAPFREQ','moddepth'))
+	#odtpow.SineMod3( f('TRAPFREQ','cpow'), f('TRAPFREQ','moddt'), f('TRAPFREQ','modfreq'), f('TRAPFREQ','moddepth'))
+	odtpow.SineMod4( f('TRAPFREQ','cpow'), f('TRAPFREQ','moddt'), f('TRAPFREQ','modfreq'), f('TRAPFREQ','moddepth'))
 	
 	return odtpow, bfield, odtpow.dt()
 	
@@ -241,6 +353,7 @@ elif f('ODT','use_servo') == 1:
 	m3=0
 	kink1=float(report['ODTCALIB']['kink'])
 	kink2=11
+
 
 it=0
 
@@ -514,3 +627,31 @@ class odt_wave(wfm.wave):
 			
 			self.y=numpy.append(self.y,ramp)
 		return
+
+	def SineMod4(self, p0, dt, freq, depth):
+		"""Sine wave modulation on channel"""
+		if dt <= 0.0:
+			return
+		else:
+			N=int(math.floor(dt/self.ss))
+			ramp=[]
+			hashbase = '%.8f,%.8f,%.8f,%.8f,%.8f,%.8f,%s,%.3f,%.3f,%.3f,%.3f,%.3f ' % ( b,m1,m2,m3,kink1,kink2, self.name, self.ss, p0, dt, freq, depth)
+			ramphash = seqconf.ramps_dir() +'SineMod3_' \
+						+ hashlib.md5( hashbase).hexdigest()
+			if not os.path.exists(ramphash):
+				print '...Making new SineMod4 ramp:  %.2f +/- %.2f' % (p0, 0.5*p0*depth/100.)
+				print '... [[ hashbase = %s ]]' % hashbase
+				for xi in range(N):
+					t = (xi+1)*self.ss
+					phys = p0 + (0.5*p0*depth/100.)* math.sin(  t * 2 * math.pi * freq/1000. )
+					volt = OdtpowConvert(phys)
+					ramp = numpy.append(ramp, [ volt])
+				ramp.tofile(ramphash,sep=',',format="%.4f")
+			else:
+				print '...Recycling previously calculated SineMod3 ramp %.2f +/- %.2f' % (p0, 0.5*p0*depth/100.)
+				print '... [[ hashbase = %s ]]' % hashbase
+				ramp = numpy.fromfile(ramphash,sep=',')
+			
+			self.y=numpy.append(self.y,ramp)
+		return
+

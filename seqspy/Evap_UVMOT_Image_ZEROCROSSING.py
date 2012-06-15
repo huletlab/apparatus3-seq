@@ -1,16 +1,12 @@
-"""Make sure the report file at
-   Savedir/reportRunNumber.INI 
+"""Make sure the report file at 'Savedir/reportRunNumber.INI'
+   exists otherwise this code won't compile. 
    
    Savedir and RunNumber are specified in settings.INI
-   
-   exists otherwise this code won't compile. 
 """
 __author__ = "Pedro M Duarte"
 
 import time
 t0=time.time()
-
-print "\n----- Evap_UVMOT_Image_ZEROCROSSING.py -----\n"
 
 import sys, math
 sys.path.append('L:/software/apparatus3/seq/utilspy')
@@ -78,24 +74,27 @@ s.analogwfm_add(evap_ss,[odtpow,bfield,ipganalog])
 s.wait(image+zcdt+zcrampdt)
 
 #RELEASE FROM IR TRAP
-#print s.digital_chgs_str(500,100000., ['cameratrig','probe','odtttl','prshutter'])
+#print s.digital_chgs_str(1000,100000., ['cameratrig','probe','odtttl','prshutter'])
 s.digichg('odtttl',0)
 odttof = float(report['ODT']['odttof'])
 s.wait(odttof)
-#print s.digital_chgs_str(500,100000., ['cameratrig','probe','odtttl','prshutter'])
+#print s.digital_chgs_str(1000,100000., ['cameratrig','probe','odtttl','prshutter'])
 
 #TAKE PICTURES
 light = 'probe'
 #light = 'motswitch'
 #light = 'bragg'
-trap_on_picture = 1
+if odttof <= 0.0:
+    trap_on_picture = 1
+else:
+    trap_on_picture = 0
 kinetics = gen.bstr('Kinetics',report)
 print '...kinetics = ' + str(kinetics)
 if kinetics == True:
     s,SERIESDT = andor.KineticSeries4(s,exp,light,noatoms, trap_on_picture)
 else:
     s,SERIESDT = andor.FKSeries2(s,stepsize,exp,light,noatoms, trap_on_picture)
-#print s.digital_chgs_str(500,100000.,['cameratrig','probe','odtttl','prshutter'])
+#print s.digital_chgs_str(1000,100000.,['cameratrig','probe','odtttl','prshutter'])
 
 #After taking a picture sequence returns at time of the last probe strobe
 #Wait 30ms to get past the end

@@ -38,7 +38,7 @@ def OpenShuttersProbe(s):
 	s.digichg('camerashut',1)
 	s.wait(cameraSHUT)
 
-	probeSHUT=35.0#full-on time for the probe shutter
+	probeSHUT=50.0#full-on time for the probe shutter
 	s.wait(-probeSHUT)
 	s.digichg('prshutter',0)
 	s.wait(probeSHUT)
@@ -91,25 +91,43 @@ def AndorPictureWithClear(s,stepsize,exp,light,flash):
 	return s, kexp/1000.+shifttime+preexp+exp+postexp-kexp/1000.+trigpulse
 
 def AndorKinetics(s,exp,light,flash):
+	logic = 1
+	
+	if logic == 0:
+		off = 1
+		flash = 1 - flash
+	else:
+		off = 0
+		
+	#print s.digital_chgs_str(1000,100000.,['cameratrig','probe','odtttl','prshutter'])
+
+		
 	#Shine probe light and return to t=0
 	aoSHUT=0.0 #full-on time for the probe ao
 	s.wait(-aoSHUT)
 	s.digichg(light,flash)
 	s.wait(aoSHUT+exp)
-	s.digichg(light,0)
+	s.digichg(light,off)
 	s.wait(-exp)
+	
+	#print s.digital_chgs_str(1000,100000.,['cameratrig','probe','odtttl','prshutter'])
 	
 	preexp = 0.5
 	s.wait(-preexp)
 	s.digichg('cameratrig',1)
-	trigpulse=0.2
+	trigpulse=0.4
 	s.wait(trigpulse)
 	s.digichg('cameratrig',0)
 	s.wait(preexp-trigpulse)
+	
+	#print s.digital_chgs_str(1000,100000.,['cameratrig','probe','odtttl','prshutter'])
+	
 	return s
 
 def KineticSeries4(s, exp, light, noatoms, trap):
     #Takes a kinetic series of 4 exposures:  atoms, noatoms, atomsref, noatomsref
+    
+    #print s.digital_chgs_str(1000,100000.,['cameratrig','probe','odtttl','prshutter'])
     
     t0 = s.tcur
     
@@ -118,9 +136,13 @@ def KineticSeries4(s, exp, light, noatoms, trap):
         s=OpenShuttersProbe(s)
     elif light == 'motswitch':
         s=OpenShuttersFluor(s)
-        
+    
+    #print s.digital_chgs_str(1000,100000.,['cameratrig','probe','odtttl','prshutter'])
+    
     #PICTURE OF ATOMS
     s=AndorKinetics(s,exp,light,1)
+    
+    #print s.digital_chgs_str(1000,100000.,['cameratrig','probe','odtttl','prshutter'])
     
     
     #SHUT DOWN TRAP, THEN TURN BACK ON FOR SAME BACKGROUND
@@ -128,6 +150,12 @@ def KineticSeries4(s, exp, light, noatoms, trap):
     s.wait(noatoms)
     s.digichg('field',0)
     s.digichg('odtttl',0)
+    s.digichg('irttl1',0)
+    s.digichg('irttl2',0)
+    s.digichg('irttl3',0)
+    s.digichg('greenttl1',0)
+    s.digichg('greenttl2',0)
+    s.digichg('greenttl3',0)
     s.wait(noatoms)
     s.digichg('odtttl',trap)
     s.wait(noatoms)
