@@ -33,3 +33,7 @@ def import_paths():
     paths.append('L:\\software\\apparatus3\\convert')
     paths.append('L:\\software\\apparatus3\\seq\\utilspy')
     return paths
+
+
+def seqtxtout():
+        return 'L:/software/apparatus3/seq/seqstxt/expseq.txt'

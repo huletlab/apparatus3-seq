@@ -239,7 +239,8 @@ s.digichg('odt7595',0)
 #print s.digital_chgs_str(500,100000., ['cameratrig','probe','odtttl','prshutter'])
 #print s.digital_chgs_str(0.,100000.)
 
-s.save('L:/software/apparatus3/seq/seqstxt/expseq.txt')
+import seqconf
+s.save( seqconf.seqtxtout() )
 s.clear_disk()
         
 print '...Compilation = %.2f seconds\n' % (time.time()-t0)

@@ -81,7 +81,8 @@ s.wait(30.0)
 s=gen.shutdown(s)
 s.digichg('odtttl',0)
 
-s.save('L:/software/apparatus3/seq/seqstxt/expseq.txt')
+import seqconf
+s.save( seqconf.seqtxtout() )
 s.clear_disk()
         
 print '...Compilation = %.2f seconds\n' % (time.time()-t0)

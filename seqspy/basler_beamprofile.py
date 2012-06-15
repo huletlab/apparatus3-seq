@@ -51,6 +51,7 @@ s=basler.BaslerBackground(s,preexp,texp,postexp)
 s.wait(800.0)
 s=gen.shutdown(s)
 s.digichg(probe,1)
-s.save('L:/software/apparatus3/seq/seqstxt/expseq.txt')
+import seqconf
+s.save( seqconf.seqtxtout() )
         
 print time.time()-t0," seconds"
