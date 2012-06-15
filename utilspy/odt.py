@@ -2,6 +2,7 @@
 	
 """
 import sys
+sys.path.append('L:/software/apparatus3/seq/seq')
 sys.path.append('L:/software/apparatus3/seq/utilspy')
 sys.path.append('L:/software/apparatus3/seq/seqspy')
 sys.path.append('L:/software/apparatus3/convert')

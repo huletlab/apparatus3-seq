@@ -247,17 +247,13 @@ class sequence:
 	def save(self,filename=None):
 		self.timesort()
 		if filename == None:
-			filename=easygui.filesavebox(None,'Select file to save compressed sequence','L:/software/apparatus3/sequence/')
+			filename=easygui.filesavebox(None,'Select file to save compressed sequence',seqconf.base_txtpath())
 		f = open(filename,"w")
 		f.write(self.__str__())
 		f.close()
 		#Get SaveDir and RunNumber to save a copy of expseq
-		f=open('L:/data/app3/comms/SaveDir')
-		savedir=f.readline()
-		f.close
-		f=open('L:/data/app3/comms/RunNumber')
-		shotnum=f.readline()
-		f.close
+		savedir=seqconf.savedir()
+		shotnum=seqconf.runnumber()
 		expseq=savedir+'expseq'+shotnum+'.txt'
 		f = open(expseq,"w")
 		f.write(self.__str__())

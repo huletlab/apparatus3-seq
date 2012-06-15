@@ -5,13 +5,22 @@
 """
 __author__ = "Pedro M Duarte"
 
+import sys
+import os
+sys.path.append( os.path.split(os.path.dirname(os.path.realpath(__file__)))[0] )
+import seqconf
+for p in seqconf.import_paths():
+	print "...adding path " + p
+	sys.path.append(p)
+
+
 import time
 t0=time.time()
 
 import sys, math
-sys.path.append('L:/software/apparatus3/seq/utilspy')
-sys.path.append('L:/software/apparatus3/seq/seqspy')
-sys.path.append('L:/software/apparatus3/convert')
+ 
+ 
+ 
 import seq, wfm, gen, cnc, odt, manta, basler, highfield_uvmot
 report=gen.getreport()
 

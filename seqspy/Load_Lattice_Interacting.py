@@ -5,13 +5,21 @@
 """
 __author__ = "Pedro M Duarte"
 
+import sys
+import os
+sys.path.append( os.path.split(os.path.dirname(os.path.realpath(__file__)))[0] )
+import seqconf
+for p in seqconf.import_paths():
+	print "...adding path " + p
+	sys.path.append(p)
+
+
 import time
 t0=time.time()
 
 import sys, math
-sys.path.append('L:/software/apparatus3/seq/utilspy')
-sys.path.append('L:/software/apparatus3/seq/seqspy')
-sys.path.append('L:/software/apparatus3/convert')
+ 
+ 
 import seq, wfm, gen, cnc, odt, andor, highfield_uvmot
 report=gen.getreport()
 
@@ -60,7 +68,9 @@ ir2.appendhold(irdelay2)
 ir3.appendhold(irdelay3)
 
 irservo = int(report['LATTICEINT']['irservo'])
-cnvflag = -11 if irservo==1 else -111
+# irservo = 0  --> -111  --> no conversion --> work in VOLTAGES
+# irservo = 1  --> -11  --> conversion --> work in RECOILS
+cnvflag = -11 if irservo==1 else -111 
 
 ir1.linear(float(report['LATTICEINT']['irpow1']),irramp1, cnvflag )
 ir2.linear(float(report['LATTICEINT']['irpow2']),irramp2, cnvflag )
