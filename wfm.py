@@ -29,7 +29,8 @@ class wave:
 		#print ("...Initialized waveform %s, idnum=%s" % ( self.name, self.wfm_id()))
 		
 	def wfm_id(self):
-		return str(self.idnum).split('.')[0]
+		#~ return str(self.idnum).split('.')[0]
+		return "%d" % self.idnum
 		
 	def fileoutput(self,filename):
 		self.y.tofile(filename,sep=',',format="%.4f")

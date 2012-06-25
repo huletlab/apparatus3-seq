@@ -42,7 +42,7 @@ s, toENDBFIELD = highfield_uvmot.go_to_highfield(s)
 
 
 # Evaporate in cross beam trap
-s = odt.crossbeam_evap(s, toENDBFIELD)
+s , cpowend = odt.crossbeam_evap(s, toENDBFIELD)
 
 
 # Go to scattering length zero-crossing

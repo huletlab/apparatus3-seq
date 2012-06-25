@@ -1,5 +1,5 @@
 from configobj import ConfigObj
-
+import seqconf
 #This function is used to read boolean data in the report file
 def b(num,report):
 	return bool(int(report['BOOL']['b'+str(num)][0]))
@@ -20,14 +20,15 @@ def bstr(str,report):
 
 def getreport():
 	#The parameters are loaded from the report file
-	f=open('L:/data/app3/comms/SaveDir')
-	savedir=f.readline()
-	f.close
-	f=open('L:/data/app3/comms/RunNumber')
-	shotnum=f.readline()
-	f.close
-	report=savedir+'report'+shotnum+'.INI'
+	#~ f=open('L:/data/app3/comms/SaveDir')
+	#~ savedir=f.readline()
+	#~ f.close
+	#~ f=open('L:/data/app3/comms/RunNumber')
+	#~ shotnum=f.readline()
+	#~ f.close
+	#~ report=savedir+'report'+shotnum+'.INI'
 	#print(report)
+	report=seqconf.savedir()+'report'+seqconf.runnumber()+'.INI'
 	report=ConfigObj(report)
 	return report
 	
