@@ -26,8 +26,8 @@ def crossbeam_evap(s, toENDBFIELD):
 	s.wait(free)
 	odtpow, ENDEVAP, cpowend, ipganalog = odt_evap(image)
 	evap_ss = float(report['EVAP']['evapss'])
-	#s.analogwfm_add(evap_ss,[odtpow,ipganalog])
-	s.analogwfm_add(evap_ss,[odtpow])
+	s.analogwfm_add(evap_ss,[odtpow,ipganalog])
+	#s.analogwfm_add(evap_ss,[odtpow])
 	# ENDEVAP should be equal to image
 	s.wait(image)
 	return s, cpowend

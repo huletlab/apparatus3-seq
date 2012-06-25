@@ -64,6 +64,8 @@ bias = float(report['FESHBACH']['bias'])
 zcrampdt = float(report['LATTICEBRAGG']['zcrampdt'])
 zcbias = float(report['ZEROCROSS']['zcbias'])
 bfield = wfm.wave('bfield',bias,ir_ss)
+zcdelay = float(report['LATTICEBRAGG']['zcdelay'])
+bfield.appendhold( zcdelay) 
 bfield.linear(zcbias,zcrampdt)
 
 odtpow = odt.odt_wave('odtpow', cpowend, ir_ss)
@@ -122,7 +124,8 @@ gr3.appendhold(inlattice)
 
 
 
-endtime = s.analogwfm_add(ir_ss,[ir1,ir2,ir3,gr1,gr2,gr3,bfield, odtpow])
+#endtime = s.analogwfm_add(ir_ss,[ir1,ir2,ir3,gr1,gr2,gr3,bfield, odtpow])
+endtime = s.analogwfm_add(ir_ss,[ir1,ir2,ir3,gr1,gr2,gr3,bfield])
 print "...Lattice ramp time = " + str(endtime) + " ms"
 
 # Turn on IR lattice beams

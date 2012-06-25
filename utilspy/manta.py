@@ -2,7 +2,7 @@ import math
 
 def MantaPicture(s, texp, probe, signal=1): 
     #signal = 0 for background picture
-    trigdt = 1.0
+    trigdt = 0.1
     probedelay = 0.1
     s.wait(-probedelay)
     s.digichg('manta',1)
