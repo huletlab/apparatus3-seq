@@ -21,6 +21,12 @@ import numpy
 
 import seqconf
 
+import mainpck
+
+import load_pck
+
+from time import sleep
+
 class sequence(HasTraits):
     
     name = Str
@@ -56,8 +62,8 @@ class sequence(HasTraits):
                                 
                         show_labels = False,
                         show_border = True,
-                        label       = 'Waveforms'),
-                    
+                        label       = 'Waveforms')
+
                 )
 
     def _load_fired(self):
@@ -166,7 +172,7 @@ class LoadSeq(HasTraits):
                                 editor = ListEditor( use_notebook = True,
                                            deletable    = True,
                                            dock_style   = 'tab',
-                                           page_name    = '.name' )
+                                           page_name    = '.name')
                             ),
                         Item('add', show_label = False),       
                         show_labels = False,
@@ -181,7 +187,7 @@ class LoadSeq(HasTraits):
                     control_group,
                     VGroup(
                     Item('figure', editor=MPLFigureEditor(),
-                            dock='vertical', show_label = False,width=0.8),
+                            dock='vertical', show_label = False,width=700),
                     HGroup(
                     'autorange',
                     'plot_range_min',
@@ -206,11 +212,12 @@ class LoadSeq(HasTraits):
         
         self.image_show()
     
-    #~ def _plot_range_max_changed(self):
-         #~ self.image_show()
+    def _plot_range_max_changed(self):
+        sleep()
+         self.image_show()
          
-    #~ def _plot_range_min_changed(self):
-         #~ self.image_show()
+    def _plot_range_min_changed(self):
+         self.image_show()
     
     def get_data(self):
         
@@ -327,16 +334,26 @@ class LoadSeq(HasTraits):
         
         
         if not self.autorange: 
+            
             analog_axis.set_xlim(self.plot_range_min,self.plot_range_max)
+            
             digi_axis.set_xlim(self.plot_range_min,self.plot_range_max)
             
-            
         else:
+            
             axismin =  min(analog_axis.get_xlim()+digi_axis.get_xlim())
+            
             axismax =  max(analog_axis.get_xlim()+digi_axis.get_xlim())
+            
             analog_axis.set_xlim(axismin,axismax)
+            
             digi_axis.set_xlim(axismin,axismax)
+            
             analog_axis.set_ylim(bottom=0,top=11)
+            
+            self.plot_range_max = axismax
+            
+            self.plot_range_min = axismin
             
         digi_axis.set_ylim(bottom=-11,top=0)
         
