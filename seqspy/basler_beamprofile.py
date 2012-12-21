@@ -6,6 +6,7 @@
 __author__ = "Pedro M Duarte"
 __version__ = "$Revision: 0.5 $"
 
+import pprint
 import sys
 import os
 sys.path.append( os.path.split(os.path.dirname(os.path.realpath(__file__)))[0] )
@@ -18,12 +19,15 @@ for p in seqconf.import_paths():
 import time
 t0=time.time()
 
-import sys, math
-import sys
- 
- 
- 
-import seq, wfm, gen, cnc, basler
+
+import math
+
+try:
+  import seq, wfm, gen, cnc, basler
+except:
+  print "Could not import"
+  exit(1)
+
 
 
 #PARAMETERS
@@ -53,5 +57,5 @@ s=gen.shutdown(s)
 s.digichg(probe,1)
 import seqconf
 s.save( seqconf.seqtxtout() )
-        
+s.save( __file__.split('.')[0]+'.txt')
 print time.time()-t0," seconds"

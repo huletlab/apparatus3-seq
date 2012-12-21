@@ -1,0 +1,1 @@
+3 = UVRED Fluorescence, Takes a picture of the UVMOT, repumping is done with the red light.

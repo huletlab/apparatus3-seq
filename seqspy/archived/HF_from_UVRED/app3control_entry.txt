@@ -1,0 +1,1 @@
+11 = HF from UVRED, - Loads ODT from UVRED%n%n- Goes to high field [FESHBACH:bias]%n%n- Takes in situ absorption image%n%n- Time from ENDUVMOT to image is given by [ANDOR:tof]

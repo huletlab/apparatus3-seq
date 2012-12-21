@@ -1,7 +1,7 @@
 #All times in MILLISECONDS !!
 
 #The required modules are imported
-import copy, seqconf, pxi, easygui, math, os
+import copy, seqconf, pxi, math, os, pprint,numpy
 #The descriptors of the hardware are initialized according to system.txt
 digitalout=pxi.digitalout()
 analogout=pxi.analogout()
@@ -9,6 +9,7 @@ device=pxi.device()
 
 verbose= False
 #change to True to get warnings. 
+
 
 
 
@@ -137,6 +138,7 @@ class wfmout:
 		self.time=tcur
 		self.step=wfmstep
 		self.aouts=aouts
+		self.stop = None
 		#aouts is a list of dictionaries of the form:
 		#Example: {'name':'chname', 'path':'arb.txt'}
 		self.aouts=aouts
@@ -155,6 +157,7 @@ class wfmout:
 				print 'ERROR: Cannot open %s' % ch['path']
 				self.isvalid=False
 		self.length = maxlen
+		
 		if (self.length % 2) != 0:
 			self.length = self.length +1
 		if self.length*len(self.aouts) > 1e7:
@@ -163,22 +166,60 @@ class wfmout:
 	def __cmp__(self,other):
 		return cmp(self.time,other.time)
 	def __str__(self):
+		
+		if self.stop != None:
+			stoplen = int(math.ceil( (self.stop - self.time)/self.step))
+
+		
+		if self.stop != None and stoplen < 2:
+			print "---Eliminating waveform output at %f" % self.time
+			return ''
+					
+			
 		s1='#\nWAVEFORM:\nTIME\t%.4f\nSTEP\t%.4f\n' % (self.time, self.step)
 		s2=''
 		for ch in self.aouts:
 			s2=s2+ch['name']+'\n'
 			try:
 				arb=open(ch['path'],"r")
-				s2=s2+arb.readline()
+				values=arb.readline()
 				arb.close()
+				#~ s2=s2+arb.readline()
+			
+				if self.stop != None and self.length > stoplen:
+					#print self.time
+					vals = values.split(',')
+					length = len(vals)
+					if length > stoplen:
+						vals = vals[:stoplen]
+						#print "STOPPING %s : (%d > %d)" % (ch['name'], length, stoplen)
+						#print len(vals)
+						values = ','.join(vals)
+					elif length < stoplen:
+						vals = vals + (stoplen-length)*[vals[-1]]
+						#print "APPENDING TO %s : (%d < %d)" %(ch['name'],length, stoplen)
+						#print len(vals)
+						values = ','.join(vals)
+					s2=s2+values
+				else:
+					s2=s2+values				
+				
 			except:
-				print 'ERROR: Cannot open %s' % ch['path']
+				print 'ERROR: Cannot process %s' % ch['path']
 				return ''
+			
 			#Find the value after the last ',' and strips the end of line
-			endvalue=',%.4f' % float(s2[s2.rfind(',')+1:-1])
+			try:
+				endvalue=',%.4f' % float(s2[s2.rfind(',')+1:-1])
+			except:
+				print "---> ERROR: The last value of the ramp %s could not be obtained!" %  ch['path']
+				exit(1)
+				
 			#Append all the needed extra samples
-			for i in range(self.length-ch['length']):
-				s2=s2+endvalue
+			if self.stop == None or self.length < stoplen:
+				for i in range(self.length-ch['length']):
+					s2=s2+endvalue
+			
 			s2=s2+'\n'
 		return s1+s2
 	def fileoutput(self):
@@ -247,7 +288,8 @@ class sequence:
 	def save(self,filename=None):
 		self.timesort()
 		if filename == None:
-			filename=easygui.filesavebox(None,'Select file to save compressed sequence',seqconf.base_txtpath())
+			print "---> ERROR: no filename was provided to save the sequence output. Program will stop"
+			exit(1)
 		f = open(filename,"w")
 		f.write(self.__str__())
 		f.close()
@@ -258,6 +300,17 @@ class sequence:
 		f = open(expseq,"w")
 		f.write(self.__str__())
 		f.close()
+		
+	def save_new(self,filename=None):
+		self.timesort()
+		if filename == None:
+			print "---> ERROR: no filename was provided to save the sequence output. Program will stop"
+			exit(1)
+		f = open(filename,"w")
+		f.write(self.__str__())
+		f.close()
+	
+		
 	def clear_disk(self):
 		for elem in self.wfms:
 			for ch in elem.aouts:
@@ -273,6 +326,20 @@ class sequence:
 	# digpulse
 	# analogwfm
 	# wait
+	
+	def digistatus(self, name):
+		"""finds out the status of a digital channel at the current time"""
+		i=0
+		while self.chgs[i].time < self.tcur:
+			i = i+1
+			if i>=len(self.chgs):
+				break
+		#print "change #%d at %f" % (i-1,self.chgs[i-1].time)
+		#print "change #%d at %f" % (i,self.chgs[i].time)
+		#if i+1<len(self.chgs):
+		#	print "change #%d at %f" % (i+1,self.chgs[i+1].time)
+		i=i-1
+		return self.chgs[i].digi[digitalout.num[name]]
 		
 	def digichg(self,name,state):
 		""" digichg appends to sequence a stchg that consists of 
@@ -456,6 +523,15 @@ class sequence:
 		
 		status = self.analogwfm(step,aouts)
 		return status
+		
+	def stop_analog(self):
+		print "---STOPPING ANALOG WFMS (CURRENT TIME = %f)" % self.tcur
+		for wfm in self.wfms:
+			wfm.stop = self.tcur
+			#print wfm.time
+			#print wfm.step
+			#print wfm.stop
+			#pprint.pprint( wfm.aouts )
 	
 	def wait(self,delay):
 		""" wait changes the current time.

@@ -1,10 +1,10 @@
-from enthought.traits.api \
+from traits.api \
     import   HasTraits, File, Button, Bool, List, Str, Int, Float
     
-from enthought.traits.ui.api \
-    import   HSplit, View,Group, HGroup, VGroup, Item, EnumEditor, ListEditor, CheckListEditor,  SetEditor, spring
+from traitsui.api \
+    import   Handler, HSplit, View,Group, HGroup, VGroup, Item, EnumEditor, ListEditor, CheckListEditor,  SetEditor, spring
     
-from enthought.traits.ui.file_dialog  \
+from traitsui.file_dialog  \
     import open_file
     
 from parse_seq import parse_seq
@@ -21,14 +21,21 @@ import numpy
 
 import seqconf
 
-import mainpck
-
-import load_pck
-
 from time import sleep
 
+import pickle
+
+mainpck = os.path.realpath(__file__).split('.')[0]+'_'+os.name+'.pck'
+
+if os.name == "posix":
+    default_file = seqconf.seqtxtout().replace("L:","/lab")
+else:
+    default_file = seqconf.seqtxtout()
+
+#~ print "DEFAULT_FILE",default_file
+
 class sequence(HasTraits):
-    
+
     name = Str
     
     file = File()
@@ -76,7 +83,7 @@ class sequence(HasTraits):
         
         for i, analog in enumerate(seq.analog_channels):
             
-            self.waveforms.append( waveform( name= 'analog %d' %i, channels = analog, time = seq.analog_time[i], data = seq.analog_data[i] ))
+            self.waveforms.append( waveform( name= 'Analog%d' %i, channels = analog, time = seq.analog_time[i], data = seq.analog_data[i] ))
     
     def _reload_fired(self):
         
@@ -124,12 +131,41 @@ class waveform(HasTraits):
             )
             
                   
+
+class MainWindowHandler(Handler):
+    ## This handler is just graciously taking care of closing 
+    ## the application when it is in the middle of doing a plot or a fit
+    def init(self, info): 
+            info.object._pck_(action='load')
     
-class LoadSeq(HasTraits):
+    def close(self, info, is_OK):
+        try:
+            info.object._pck_(action='save')
+        except:
+            pass
+        return True
+
+
+class MainWindow(HasTraits):
+    
+    def _pck_(self,action,f=mainpck):
+        if action == 'load':
+            try:
+                fpck=open(f,"rb")
+                print 'Loading panel from %s' % mainpck
+                self.seqs = pickle.load(fpck)
+            except:
+                print "Loading Fail"
+                return
+        if action == 'save':
+            print 'Saving panel to %s' % mainpck
+            fpck=open(f,"w+b")
+            pickle.dump(self.seqs,fpck)
+        fpck.close()
     
     figure = Figure()
     
-    seqs = List([sequence(name='Seq 0',file=seqconf.seqtxtout())])
+    seqs = List([sequence(name='S0',file=default_file)])
     
     add = Button("Add Sequence")
     
@@ -147,10 +183,13 @@ class LoadSeq(HasTraits):
     
     data_analog_names = List()
     
+    
+    autorangeY = Bool(True, label="Autorange in Y?")
+    plot_rangeY_max = Float(10)
+    plot_rangeY_min = Float(0)
+    
     autorange = Bool(True, label="Autorange?")
-    
     plot_range_max = Float(10000)
-    
     plot_range_min = Float()
     
     
@@ -193,18 +232,25 @@ class LoadSeq(HasTraits):
                     'plot_range_min',
                      spring,
                     'plot_range_max'
+                    ),
+                    HGroup(
+                    'autorangeY',
+                    'plot_rangeY_min',
+                     spring,
+                    'plot_rangeY_max'
                     )
                     )
                 ),
                 width     = 1,
                 height    = 0.95,
-                resizable = True
+                resizable = True,
+                handler=MainWindowHandler(),
             )
     
  
     def _add_fired(self):
          
-        self.seqs.append( sequence( name= 'Seq %d' %len(self.seqs)) )
+        self.seqs.append( sequence( name= 'S%d' %len(self.seqs),file=default_file) )
         
     def _plot_fired(self):
          
@@ -212,12 +258,12 @@ class LoadSeq(HasTraits):
         
         self.image_show()
     
-    def _plot_range_max_changed(self):
-        sleep()
-         self.image_show()
+    #~ def _plot_range_max_changed(self):
+        #~ sleep()
+        #~ self.image_show()
          
-    def _plot_range_min_changed(self):
-         self.image_show()
+    #~ def _plot_range_min_changed(self):
+         #~ self.image_show()
     
     def get_data(self):
         
@@ -315,6 +361,7 @@ class LoadSeq(HasTraits):
             
         for i, name in enumerate(self.data_analog_names):
             
+            #~ print name,len(self.data_analog_time[i]),len(self.data_analog[i])
             analog_axis.step(self.data_analog_time[i],self.data_analog[i],where = 'post', label = name)  
         
         analog_axis.axhline(0, color='black', lw=2)
@@ -323,7 +370,7 @@ class LoadSeq(HasTraits):
         
         #digi_axis.legend(bbox_to_anchor=(1.01, 0.5),loc=2,prop={'size':10})
         
-        digi_axis.set_xlabel('Time(ms)')
+        analog_axis.set_xlabel('Time(ms)')
         
         self.figure.axes[1].set_ylabel('TTL')
         
@@ -332,6 +379,22 @@ class LoadSeq(HasTraits):
         analog_axis.grid(True)
         
         
+        if not self.autorangeY: 
+            
+            analog_axis.set_ylim(self.plot_rangeY_min,self.plot_rangeY_max)
+            
+        else:
+            
+            axismin =  min(analog_axis.get_ylim())
+            
+            axismax =  max(analog_axis.get_ylim())
+            
+            analog_axis.set_ylim(axismin,axismax)
+            
+            self.plot_rangeY_max = axismax
+            
+            self.plot_rangeY_min = axismin
+            
         
         if not self.autorange: 
             
@@ -349,7 +412,7 @@ class LoadSeq(HasTraits):
             
             digi_axis.set_xlim(axismin,axismax)
             
-            analog_axis.set_ylim(bottom=0,top=11)
+            #~ analog_axis.set_ylim(bottom=0,top=11)
             
             self.plot_range_max = axismax
             
@@ -363,5 +426,6 @@ class LoadSeq(HasTraits):
         
         wx.CallAfter(self.figure.canvas.draw)
 
-container = LoadSeq()
-container.configure_traits()
+
+if __name__ == '__main__':
+    MainWindow().configure_traits()

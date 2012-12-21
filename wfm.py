@@ -54,33 +54,6 @@ class wave:
 	def N(self):
 		"""Returns the number of samples on the wfm"""
 		return (self.y.size)
-
-
-	
-	def linear(self,vf,dt,volt=-11):
-		"""Adds linear ramp to waveform, starts at current last 
-			value and goes to 'vf' in 'dt' 
-			CAREFUL: This is linear in voltage, not in phys"""
-		if self.name == 'ir1pow':
-			print "Conversion flag = %d, vf_in=%f" % (volt,vf)
-		if volt >= 0 and volt <= 10.0:
-			vf=volt
-		elif volt == -11:
-			vf=cnv(self.name,vf)
-			
-		if self.name == 'ir1pow':
-			print cnv(self.name,vf)
-			print "Conversion flag = %d, vf_out=%f" % (volt,vf)
-		v0=self.last()
-		if dt == 0.0:
-			self.y[ self.y.size -1] = vf
-			return
-		else:
-			N = int(math.floor(dt/self.ss))
-			for i in range(N):
-				self.y=numpy.append(self.y, [v0 + (vf-v0)*(i+1)/N])
-		return
-
 		
 	def extend(self,dt):
 		"""Extends the waveform so that it's total duration equals 'dt' """
@@ -275,6 +248,64 @@ class wave:
 				self.y=numpy.append(self.y, [f])
 		return
 		
+	def linear(self,vf,dt,volt=-11):
+		"""Adds linear ramp to waveform, starts at current last 
+			value and goes to 'vf' in 'dt' 
+			CAREFUL: This is linear in voltage, not in phys"""
+		if 'ir' in self.name  and 'pow' in self.name:
+			print "%s LINEAR: Conversion flag = %d, vf_in=%f" % (self.name, volt,vf)
+			
+		if volt >= 0 and volt <= 10.0:
+			vf=volt
+		elif volt == -11:
+			vf=cnv(self.name,vf)
+			
+		if 'ir' in self.name  and 'pow' in self.name:
+			print "%s  LINEAR: Conversion flag = %d, vf_out=%f" % (self.name, volt,vf)
+			
+		v0=self.last()
+		if dt == 0.0:
+			self.y[ self.y.size -1] = vf
+			return
+		else:
+			N = int(math.floor(dt/self.ss))
+			for i in range(N):
+				self.y=numpy.append(self.y, [v0 + (vf-v0)*(i+1)/N])
+		return
+
+	def insertlin_cnv(self,vf,dt,start):
+		"""Inserts a linear ramp (vf,dt) at a time 'start' referenced from 
+			the end of the current sate of the wfm.  
+			
+			start > 0 : appends a hold before doing the ramp
+			"""
+		vf=cnv(self.name,vf)
+		if self.name == 'ir1pow':
+			print cnv(self.name,vf)
+			print "INSERTLIN_CNV: Conversion result:  vf_out=%f" % (vf)		
+		if start>0:
+			self.apppendhold(start-self.ss)
+			self.y = numpy.append(self.y,[vf])
+			return
+		elif -start > self.dt():
+			print("Cannot insert ramp before the beggiging of the waveform")
+			exit(1)
+		elif dt > -start:
+			print("Ramp is too long for inserting")
+			exit(1)
+		Nstart=int(math.floor(-start/self.ss))
+		if dt==0. :
+			N=0
+			self.y[self.y.size -1 - Nstart]=vf
+		else:
+			N=int(math.floor(dt/self.ss))
+			v0 = self.y[self.y.size -1 - Nstart]
+			for i in range(N):
+				self.y[self.y.size - Nstart + i] = v0 + (vf-v0)*(i+1)/N
+		for i in range( Nstart -N):
+			self.y[self.y.size - Nstart + N + i] = vf
+		return
+		
 		
 	def insertlin(self,vf,dt,start):
 		"""Inserts a linear ramp (vf,dt) at a time 'start' referenced from 
@@ -283,7 +314,7 @@ class wave:
 			start > 0 : appends a hold before doing the ramp
 			"""
 		if start>0:
-			self.apppendhold(start-ss)
+			self.appendhold(start-self.ss)
 			self.y = numpy.append(self.y,[vf])
 			return
 		elif -start > self.dt():

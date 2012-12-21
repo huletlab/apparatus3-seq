@@ -1,0 +1,1 @@
+8 = ODT from UVRED, - Does UVRED MOT%n%n- Overlaps UVRED hold time with ODT [ODT:overlapdt]%n%n- Turns off light and after [ANDOR:tof] takes in-situ absorption images with Andor camera at zero field.

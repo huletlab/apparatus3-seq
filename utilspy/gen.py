@@ -3,9 +3,11 @@ import seqconf
 #This function is used to read boolean data in the report file
 def b(num,report):
 	return bool(int(report['BOOL']['b'+str(num)][0]))
+	
 
 #This function looks for a string 'str' in the report file and returns it's boolean value
 def bstr(str,report):
+	#~ print seqconf.runnumber()
 	for item in report['BOOL'].values():
 		bool=item.split(';')[0]
 		if bool =='1':
@@ -32,6 +34,33 @@ def getreport():
 	report=ConfigObj(report)
 	return report
 	
+def save_to_report( sec, key, value):
+	report = getreport()
+	report[sec][key] = str(value)
+	report.write()
+	
+class Section(object):
+	def __init__(self, adict):
+		self.__dict__.update(adict)
+	def set( self, key , val):
+		self.__dict__[key] = val
+	
+def getsection(SEC):
+	ndict = {}
+	secdict = getreport()[SEC]
+	for key in secdict.keys():
+		if '.' in secdict[key]:
+			ndict[key] = float( secdict[key] )
+		else:
+			try:
+				ndict[key] = int( secdict[key] )
+			except:
+				ndict[key] = secdict[key]
+	return Section(ndict)
+	
+	
+	
+	
 
 def initial(s):
 	# set initial values for TTL lines in sequence
@@ -57,6 +86,9 @@ def initial(s):
 	s.digichg('greenttl3',0)
 	s.digichg('ipgttl',1)
 	s.digichg('brshutter',1)
+	s.digichg('bservo',1)
+	s.digichg('quick2',0)
+	s.digichg('select2',0)
 	return s
 	
 def releaseMOT(s):
@@ -86,12 +118,11 @@ def shutdown(s):
 	s.digichg('motshutter',1)
 	s.wait(10.0)
 	s.digichg('feshbach',0)
-	s.digichg('hfimg',0)
+	#s.digichg('hfimg',0)
 	s.digichg('quick',0)
 	s.digichg('hfquick',0)
 	s.digichg('uvshutter',0)
 	s.digichg('odtttl',0)
-	s.digichg('uvprobe',0)
 	s.digichg('irttl1',0)
 	s.digichg('irttl2',0)
 	s.digichg('irttl3',0)
@@ -100,6 +131,9 @@ def shutdown(s):
 	s.digichg('greenttl3',0)
 	s.digichg('ipgttl',1)
 	s.digichg('brshutter',1)
+	s.digichg('bservo',1)
+	s.digichg('quick2',0)
+	s.digichg('select2',0)
 	return s
 	
 def setphase(s):

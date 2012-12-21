@@ -1,0 +1,1 @@
+9 = ODT from UVRED TOF, Same as ODT Load from UV, except atoms are released from ODT before imaging.  Time-of-flight is [ODT:odttof].

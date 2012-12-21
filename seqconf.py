@@ -13,6 +13,9 @@ def clockrate():
 def base_txtpath():
     return 'L:/software/apparatus3/seq/seqstxt'
 
+def base_seqspypath():
+    return 'L:/software/apparatus3/seq/seqspy'
+
 def savedir():
     f=open('L:/data/app3/comms/SaveDir')
     savedir=f.readline()

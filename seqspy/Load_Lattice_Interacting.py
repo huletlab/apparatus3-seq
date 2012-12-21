@@ -30,6 +30,9 @@ tof      = float(report['ANDOR']['tof'])
 exp      = float(report['ANDOR']['exp'])
 noatoms  = float(report['ANDOR']['noatoms'])
 
+#GET SECTION CONTENTS
+latticeint  = gen.getsection('LATTICEINT')
+
 #SEQUENCE
 s=seq.sequence(stepsize)
 s=gen.initial(s)
@@ -142,15 +145,7 @@ s.analogwfm_add(evap_ss,[bfield])
 s.wait(zcdt+zcrampdt)
 
 
-#RELEASE FROM ODT
-#print s.digital_chgs_str(500,100000., ['cameratrig','probe','odtttl','prshutter'])
 
-odtoff = float(report['LATTICEINT']['odtoff'])
-s.wait(odtoff)
-s.digichg('odtttl',0)
-s.digichg('odt7595',0)
-s.digichg('ipgttl',0)
-s.wait(-odtoff)
 
 
 #Testing if field gradient is holding the atoms tightly in the Top/Bottom beam
@@ -165,10 +160,33 @@ s.wait(-odtoff)
 #~ s.analogwfm_add(evap_ss,[bfield])
 #~ s.wait(-zcwait)
 
+if latticeint.flicker == 1:
+    s.wait(-latticeint.flickerdt)
+    s.digichg('odtttl',0)
+    s.wait(latticeint.flickerdt)
+    s.digichg('odtttl',1)
+
 
 #print s.digital_chgs_str(500,100000., ['cameratrig','probe','odtttl','prshutter'])
 inzc = float(report['LATTICEINT']['inzc'])
 s.wait(inzc)
+
+#RELEASE FROM ODT
+#print s.digital_chgs_str(500,100000., ['cameratrig','probe','odtttl','prshutter'])
+
+odtoff = float(report['LATTICEINT']['odtoff'])
+s.wait(odtoff)
+s.digichg('odtttl',0)
+s.digichg('odt7595',0)
+s.digichg('ipgttl',0)
+if latticeint.flicker ==1:  
+    s.digichg('greenttl1',0)
+    s.digichg('greenttl2',0)
+    s.digichg('greenttl3',0)
+    s.digichg('irttl1',0)
+    s.digichg('irttl2',0)
+    s.digichg('irttl3',0)
+s.wait(-odtoff)
 
 
 s.digichg('greenttl1',0)
@@ -207,6 +225,7 @@ s.digichg('odt7595',0)
 
 import seqconf
 s.save( seqconf.seqtxtout() )
+s.save( __file__.split('.')[0]+'.txt')
 s.clear_disk()
         
 print '...Compilation = %.2f seconds\n' % (time.time()-t0)

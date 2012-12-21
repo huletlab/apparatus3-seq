@@ -1,0 +1,1 @@
+12 = HF from UVRED TOF, - Loads ODT from UVRED%n%n- Goes to high field [FESHBACH:bias]%n%n- From ENDUVMOT waits [ANDOR:tof] before releasing the atoms from the ODT%n%n - Time-of-flight absorption image is taken with the Andor after [ODT:odttof]

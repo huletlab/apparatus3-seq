@@ -71,6 +71,7 @@ s.wait(2.0)
 s=gen.shutdown(s)
 import seqconf
 s.save( seqconf.seqtxtout() )
+s.save( __file__.split('.')[0]+'.txt')
 s.clear_disk()
         
 print '...Compilation = %.2f seconds\n' % (time.time()-t0)

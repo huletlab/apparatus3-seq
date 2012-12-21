@@ -80,6 +80,13 @@ ir1  = wfm.wave('ir1pow', 0., ir_ss)
 ir2  = wfm.wave('ir2pow', 0., ir_ss)
 ir3  = wfm.wave('ir3pow', 0., ir_ss)
 
+#~ bfield = wfm.wave('bfield',zcbias,ir_ss)
+#~ bfield.linear(86.0,0.)
+#~ bfield.appendhold(irdelay3)
+#~ bfield.appendhold(irramp3)
+#~ bfield.linear(zcbias,0.)
+
+
 ir1.appendhold(irdelay1)
 ir2.appendhold(irdelay2)
 ir3.appendhold(irdelay3)
@@ -113,7 +120,7 @@ gr3.linear(float(report['LATTICE']['grpow3']),grramp3)
 #ipg.linear( 0.0, 10.0)
 #s.analogwfm_add(ir_ss,[ir1,ir2,ir3,gr1,gr2,gr3,ipg])
 
-s.analogwfm_add(ir_ss,[ir1,ir2,ir3,gr1,gr2,gr3])
+s.analogwfm_add(ir_ss,[ir1,ir2,ir3,gr1,gr2,gr3,bfield])
 
 # Turn on IR lattice beams
 
@@ -221,6 +228,7 @@ s.digichg('odt7595',0)
 
 import seqconf
 s.save( seqconf.seqtxtout() )
+s.save( __file__.split('.')[0]+'.txt')
 s.clear_disk()
         
 print '...Compilation = %.2f seconds\n' % (time.time()-t0)

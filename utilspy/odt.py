@@ -6,9 +6,14 @@ sys.path.append('L:/software/apparatus3/seq/seq')
 sys.path.append('L:/software/apparatus3/seq/utilspy')
 sys.path.append('L:/software/apparatus3/seq/seqspy')
 sys.path.append('L:/software/apparatus3/convert')
-import seqconf, wfm, gen, math, cnc, time, os, numpy, hashlib, evap
+import seqconf, wfm, gen, math, cnc, time, os, numpy, hashlib, evap, lattice
 
 report=gen.getreport()
+
+#GET SECTION CONTENTS
+evp = gen.getsection('EVAP')
+lbf  = gen.getsection('LATTICEBRAGGFIELD')
+
 
 def f(sec,key):
 	global report
@@ -31,6 +36,73 @@ def crossbeam_evap(s, toENDBFIELD):
 	# ENDEVAP should be equal to image
 	s.wait(image)
 	return s, cpowend
+	
+	
+def crossbeam_evap_field(s, toENDBFIELD):
+	# Add evaporation ramp to ODT, returns sequence right at the end of evaporation
+	free = float(report['EVAP']['free'])
+	image= float(report['EVAP']['image'])
+	buffer=10.0 #Time needed to re-latch the trigger for the AOUTS
+	if free < buffer + toENDBFIELD :
+		print 'Need at list ' + str(buffer) + 'ms of free evap before evaporation can be triggered'
+		print 'Currently ramps end at %f , and free is %f' % (toENDBFIELD,free)
+		exit(1)
+	s.wait(free)
+	bfield, odtpow, ENDEVAP, cpowend, ipganalog = odt_evap_field(image)
+	evap_ss = float(report['EVAP']['evapss'])
+	s.analogwfm_add(evap_ss,[odtpow,ipganalog, bfield])
+	#s.analogwfm_add(evap_ss,[odtpow])
+	# ENDEVAP should be equal to image
+	s.wait(image)
+	return s, cpowend
+	
+
+def crossbeam_evap_field_into_lattice(s, toENDBFIELD):
+	# Add evaporation ramp to ODT, returns sequence right at the end of evaporation
+	free = float(report['EVAP']['free'])
+	image= float(report['EVAP']['image'])
+	buffer=10.0 #Time needed to re-latch the trigger for the AOUTS
+	if free < buffer + toENDBFIELD :
+		print 'Need at list ' + str(buffer) + 'ms of free evap before evaporation can be triggered'
+		print 'Currently ramps end at %f , and free is %f' % (toENDBFIELD,free)
+		exit(1)
+	s.wait(free)
+	bfield, odtpow, ENDEVAP, cpowend, ipganalog = odt_evap_field(image)
+	evap_ss = float(report['EVAP']['evapss'])
+	
+	ir1  = lattice.lattice_wave('ir1pow', 0., evap_ss)
+	ir2  = lattice.lattice_wave('ir2pow', 0., evap_ss)
+	ir3  = lattice.lattice_wave('ir3pow', 0., evap_ss)
+	
+	gr1  = lattice.lattice_wave('greenpow1', 0., evap_ss)
+	gr2  = lattice.lattice_wave('greenpow2', 0., evap_ss)
+	gr3  = lattice.lattice_wave('greenpow3', 0., evap_ss)
+	
+	all = [ir1,ir2,ir3,gr1,gr2,gr3]
+	pow = [evp.irpow, evp.irpow, evp.irpow, evp.grpow, evp.grpow, evp.grpow]
+	
+	for i,ch in enumerate(all):
+	  ch.appendhold( evp.latticet0 )
+	  ch.tanhRise(pow[i], evp.latticedt, evp.tanhtau, evp.tanhshift)
+	
+	s.wait(evp.latticet0)
+	s.digichg( 'irttl1', evp.irttl1)
+	s.digichg( 'irttl2', evp.irttl2)
+	s.digichg( 'irttl3', evp.irttl3)
+	s.digichg( 'greenttl1', evp.irttl1)
+	s.digichg( 'greenttl2', evp.irttl2)
+	s.digichg( 'greenttl3', evp.irttl3)
+	s.wait(-evp.latticet0)
+	
+	
+	s.analogwfm_add(evap_ss,[odtpow,ipganalog, bfield,ir1,ir2,ir3,gr1,gr2,gr3])
+	
+	
+
+	# ENDEVAP should be equal to image
+	s.wait(image)
+	return s, cpowend
+
 
 def crossbeam_evap_into_lattice(s, toENDBFIELD):
 	# Add evaporation ramp to ODT, returns sequence right at the end of evaporation
@@ -137,12 +209,19 @@ def odt_evap(image):
 	offset = f('EVAP','offset')
 	t2     = f('EVAP','t2')
 	tau2   = f('EVAP','tau2')
+	smoothdt   = f('EVAP','smoothdt')
+
 		
 	odtpow = odt_wave('odtpow', p0, evap_ss)
 	#odtpow.Evap(p0, p1, t1, tau, beta, image)
 	#odtpow.Evap2(p0, p1, t1, tau, beta, offset, t2, tau2, image)
 	#odtpow.Evap3(p0, p1, t1, tau, beta, offset, t2, tau2, image)
-	finalcpow = odtpow.Evap4(p0, p1, t1, tau, beta, offset, t2, tau2, image)
+	
+	### SELECT EVAP TRAJECTORY HERE###
+	finalcpow = odtpow.Evap7(p0, p1, t1, tau, beta, offset, t2, tau2,smoothdt,image)
+	
+	#Here, go ahead and save the finalcpow to the report
+	gen.save_to_report('EVAP','finalcpow', finalcpow)
 	
 	#ipganalog starts out at full power
 	ipganalog = ipg_wave('ipganalog', 10., evap_ss)
@@ -151,8 +230,125 @@ def odt_evap(image):
 		ipganalog.extend( odtpow.dt() )
 	elif f('ODT','use_servo') == 1:
 		ipganalog.follow( odtpow )
-		
+	#~ ipganalog.follow( odtpow )
+
+	#~ odtpow.Exponential(pow0,powf,evap_dt,tau)
+	#~ odtpow.linear( powf, evap_ss)
+	#~ odtpow.appendhold( evap_dt)
 	
+	maxDT = odtpow.dt()
+	
+	return odtpow, maxDT, finalcpow, ipganalog
+
+def odt_evap_field(image):
+	evap_ss = f('EVAP','evapss')
+
+	p0   = f('ODT','odtpow')
+	p1   = f('EVAP','p1')
+	t1   = f('EVAP','t1')
+	tau  = f('EVAP','tau')
+	beta = f('EVAP','beta')
+	
+	offset = f('EVAP','offset')
+	t2     = f('EVAP','t2')
+	tau2   = f('EVAP','tau2')
+	smoothdt   = f('EVAP','smoothdt')
+	
+	field_ramp_time = f('EVAP','fieldrampt0')
+	field_ramp_dt = f('EVAP','fieldrampdt')
+	field_ramp_start = f('FESHBACH','bias')
+	field_ramp_final = f('EVAP','fieldrampfinal')
+	
+	#~ field_ramp_time = min(image,field_ramp_time)
+	#~ field_ramp_dt = min(image-field_ramp_time,field_ramp_dt)
+	
+	ramp=[]
+	hashbase = '%.8f,%.8f,%.8f,%.8f,%.8f,%.8f' % (image,evap_ss,field_ramp_time,field_ramp_dt,field_ramp_start,field_ramp_final)
+	ramphash = seqconf.ramps_dir() +'Evap_field_'+ hashlib.md5( hashbase).hexdigest()
+	#Here, go ahead and save the trajectory path to the report
+	gen.save_to_report('EVAP','ramp_field', ramphash)
+
+	bfield = wfm.wave('bfield',field_ramp_start,evap_ss)
+
+
+	if not os.path.exists(ramphash) :
+		bfield.extend(field_ramp_time)
+		bfield.linear(field_ramp_final,field_ramp_dt)
+		if((field_ramp_time+field_ramp_dt)<image):
+			bfield.extend(image)
+		else:
+			bfield.chop(image)
+		ramp = bfield.y
+		ramp.tofile(ramphash,sep=',',format="%.4f")
+	else:
+		print '\t...Recycling previously calculated Evap_field'
+		ramp = numpy.fromfile(ramphash,sep=',')
+		bfield.y=numpy.append(bfield.y,ramp)
+
+	odtpow = odt_wave('odtpow', p0, evap_ss)
+	#~ odtpow_test = odt_wave('NC0', p0, evap_ss)
+	#~ odtpow_test2 = odt_wave('NC1', p0, evap_ss)
+	#odtpow.Evap(p0, p1, t1, tau, beta, image)
+	#odtpow.Evap2(p0, p1, t1, tau, beta, offset, t2, tau2, image)
+	#odtpow.Evap3(p0, p1, t1, tau, beta, offset, t2, tau2, image)
+	
+	### SELECT EVAP TRAJECTORY HERE###
+	finalcpow = odtpow.Evap7(p0, p1, t1, tau, beta, offset, t2, tau2,smoothdt,image)
+	#~ finalcpow2 = odtpow_test.Evap7(p0, p1, t1, tau, beta, offset, t2, tau2,smoothdt,image)
+	#~ finalcpow3 = odtpow_test2.Evap7(p0, p1, t1, tau, beta, offset, t2, tau2,smoothdt,image)
+	
+	#Here, go ahead and save the finalcpow to the report
+	gen.save_to_report('EVAP','finalcpow', finalcpow)
+	
+	#ipganalog starts out at full power
+	ipganalog = ipg_wave('ipganalog', 10., evap_ss)
+	
+	if f('ODT','use_servo') == 0:
+		ipganalog.extend( odtpow.dt() )
+	elif f('ODT','use_servo') == 1:
+		ipganalog.follow( odtpow )
+	#~ ipganalog.follow( odtpow )
+
+	#~ odtpow.Exponential(pow0,powf,evap_dt,tau)
+	#~ odtpow.linear( powf, evap_ss)
+	#~ odtpow.appendhold( evap_dt)
+
+	maxDT = odtpow.dt()
+		
+	return bfield, odtpow, maxDT, finalcpow, ipganalog#,odtpow_test,odtpow_test2
+
+def odt_evap_patch(image):
+	evap_ss = f('EVAP','evapss')
+	p0   = f('ODT','odtpow')
+	m   = f('EVAP','patch_m')
+	y1   = f('EVAP','patch_y')
+	t0  = f('EVAP','patch_t0')
+	cut_time = f('EVAP','patch_cuttime')
+	m_t0 = f('EVAP','patch_m_t0')
+	kink1= f('EVAP','patch_kink1')
+	m_t0_1 = f('EVAP','patch_m_t0')
+	kink2= f('EVAP','patch_kink2')
+	m_t0_2 = f('EVAP','patch_m_t0_2')
+	odtpow = odt_wave('odtpow', p0, evap_ss)
+	#odtpow.Evap(p0, p1, t1, tau, beta, image)
+	#odtpow.Evap2(p0, p1, t1, tau, beta, offset, t2, tau2, image)
+	#odtpow.Evap3(p0, p1, t1, tau, beta, offset, t2, tau2, image)
+	
+	### SELECT EVAP TRAJECTORY HERE###
+	finalcpow = odtpow.Evap6(cut_time,m,y1,t0,kink1,kink2,m_t0_1,m_t0_2,image)
+	
+	#Here, go ahead and save the finalcpow to the report
+	gen.save_to_report('EVAP','finalcpow', finalcpow)
+	
+	#ipganalog starts out at full power
+	ipganalog = ipg_wave('ipganalog', 10., evap_ss)
+	
+	if f('ODT','use_servo') == 0:
+		ipganalog.extend( odtpow.dt() )
+	elif f('ODT','use_servo') == 1:
+		ipganalog.follow( odtpow )
+	#~ ipganalog.follow( odtpow )
+
 	#~ odtpow.Exponential(pow0,powf,evap_dt,tau)
 	#~ odtpow.linear( powf, evap_ss)
 	#~ odtpow.appendhold( evap_dt)
@@ -514,36 +710,196 @@ class odt_wave(wfm.wave):
 		
 
 	def Evap4(self, p0, p1, t1, tau, beta, offset, t2, tau2, duration):
-		"""Evaporation ramp v2"""
+		"""Evaporation ramp v4"""
+		if True:
+			print ""
+			print "----- EVAPORATION RAMP Version 4-----"
+			print "\tp0       = %.4f" % p0
+			print "\tp1       = %.4f" % p1
+			print "\tt1       = %.4f" % t1
+			print "\ttau      = %.4f" % tau
+			print "\tbeta     = %.4f" % beta
+			print "\toffset   = %.4f" % offset
+			print "\tt2       = %.4f" % t2
+			print "\ttau2     = %.4f" % tau2
+			print "\tduration = %.4f" % duration
+			
 		if duration <=0:
 			return
 		else:
 			N=int(round(duration/self.ss))
-			print '...Evap nsteps = ' + str(N)
+			print '\t...Evap nsteps = ' + str(N)
+			ramp_phys=[]
 			ramp=[]
 			hashbase = '%.8f,%.8f,%.8f,%.8f,%.8f,%.8f,%s,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f ' \
 			           % ( b,m1,m2,m3,kink1,kink2, self.name, self.ss, duration, p0, p1, t1, tau, beta, offset, t2, tau2)
 
 			ramphash = seqconf.ramps_dir() +'Evap4_' \
 						+ hashlib.md5( hashbase).hexdigest()
-			if not os.path.exists(ramphash):
-				print '...Making new Evap4 ramp'
+			#Here, go ahead and save the trajectory path to the report
+			gen.save_to_report('EVAP','ramp', ramphash+'_phys')
+			if True:#not os.path.exists(ramphash):
+				print '\t...Making new Evap4 ramp'
 				for xi in range(N):
 					t = (xi+1)*self.ss
 					phys = evap.v2(t,p0,p1,t1,tau,beta, offset,t2,tau2)                    
 					volt = OdtpowConvert(phys)
+					ramp_phys = numpy.append( ramp_phys, [ phys])
 					ramp = numpy.append( ramp, [ volt])
+				ramp_phys.tofile(ramphash+'_phys',sep='\n',format="%.4f")
 				ramp.tofile(ramphash,sep=',',format="%.4f")
 			else:
-				print '...Recycling previously calculated Evap4 ramp'
+				print '\t...Recycling previously calculated Evap4 ramp'
 				ramp = numpy.fromfile(ramphash,sep=',')
 
 			self.y=numpy.append(self.y,ramp)
 
 		#This returns the last value of the ramp
+		print ""
 		return evap.v2(N*self.ss,p0,p1,t1,tau,beta,offset,t2,tau2)
 
+	def Evap5(self, p0, p1, t1, tau, beta, offset, t2, tau2, duration):
+		"""Evaporation ramp v5"""
+		if True:
+			print ""
+			print "----- EVAPORATION RAMP Version 5-----"
+			print "\tp0       = %.4f" % p0
+			print "\tp1       = %.4f" % p1
+			print "\tt1       = %.4f" % t1
+			print "\ttau      = %.4f" % tau
+			print "\tbeta     = %.4f" % beta
+			print "\toffset   = %.4f" % offset
+			print "\tt2       = %.4f" % t2
+			print "\ttau2     = %.4f" % tau2
+			print "\tduration = %.4f" % duration
+			
+		if duration <=0:
+			return
+		else:
+			N=int(round(duration/self.ss))
+			print '\t...Evap nsteps = ' + str(N)
+			ramp_phys=[]
+			ramp=[]
+			hashbase = '%.8f,%.8f,%.8f,%.8f,%.8f,%.8f,%s,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f ' \
+			           % ( b,m1,m2,m3,kink1,kink2, self.name, self.ss, duration, p0, p1, t1, tau, beta, offset, t2, tau2)
 
+			ramphash = seqconf.ramps_dir() +'Evap5__' \
+						+ hashlib.md5( hashbase).hexdigest()
+			#Here, go ahead and save the trajectory path to the report
+			gen.save_to_report('EVAP','ramp', ramphash+'_phys')
+			if not os.path.exists(ramphash):
+				print '\t...Making new Evap5 ramp'
+				for xi in range(N):
+					t = (xi+1)*self.ss
+					phys = evap.v2(t,p0,p1,t1,tau,beta, offset,t2,tau2) if (t<t2) else  evap.v2(t2,p0,p1,t1,tau,beta, offset,t2,tau2)                  
+					volt = OdtpowConvert(phys)
+					ramp_phys = numpy.append( ramp_phys, [ phys])
+					ramp = numpy.append( ramp, [ volt])
+				ramp_phys.tofile(ramphash+'_phys',sep='\n',format="%.4f")
+				ramp.tofile(ramphash,sep=',',format="%.4f")
+			else:
+				print '\t...Recycling previously calculated Evap4 ramp'
+				ramp = numpy.fromfile(ramphash,sep=',')
+
+			self.y=numpy.append(self.y,ramp)
+
+		#This returns the last value of the ramp
+		print ""
+		return evap.v2(N*self.ss,p0,p1,t1,tau,beta,offset,t2,tau2)
+		
+	def Evap6(self,cut_time,m,y,t0,kink1,kink2,m_t0_1,m_t0_2,duration):
+		"""Evaporation ramp v6"""
+		if True:
+			print ""
+			print "----- EVAPORATION RAMP Version 6-----"
+			print "\tm       = %.4f" % m
+			print "\ty       = %.4f" % y
+			print "\tt0      = %.4f" % t0
+
+			
+		if duration <=0:
+			return
+		else:
+			N=int(round(duration/self.ss))
+			print '\t...Evap nsteps = ' + str(N)
+			ramp_phys=[]
+			ramp=[]
+			hashbase = '%.8f,%.8f,%.8f,%.8f,%.8f,%.8f,%s,%.3f,%.3f,%.3f,%.3f,%.3f ' \
+			           % ( b,m1,m2,m3,kink1,kink2, self.name, self.ss, duration, m,y,t0)
+
+			ramphash = seqconf.ramps_dir() +'Evap6_1560' \
+						+ hashlib.md5( hashbase).hexdigest()
+			#Here, go ahead and save the trajectory path to the report
+			gen.save_to_report('EVAP','ramp', ramphash+'_phys')
+			#if not os.path.exists(ramphash):
+			if True:
+				print '\t...Making new Evap6 ramp'
+				for xi in range(N):
+					t = (xi+1)*self.ss
+					phys = evap.v5(cut_time,m,y,t0,kink1,kink2,m_t0_1,m_t0_2,t)                    
+					volt = OdtpowConvert(phys)
+					ramp_phys = numpy.append( ramp_phys, [ phys])
+					ramp = numpy.append( ramp, [ volt])
+				ramp_phys.tofile(ramphash+'_phys',sep='\n',format="%.4f")
+				ramp.tofile(ramphash,sep=',',format="%.4f")
+			else:
+				print '\t...Recycling previously calculated Evap6 ramp'
+				ramp = numpy.fromfile(ramphash,sep=',')
+
+			self.y=numpy.append(self.y,ramp)
+
+		#This returns the last value of the ramp
+		print ""
+		return evap.v5(cut_time,m,y,t0,kink1,kink2,m_t0_1,m_t0_2,N*self.ss) 
+		
+	def Evap7(self, p0, p1, t1, tau, beta, offset, t2, tau2, smoothdt, duration):
+		"""Evaporation ramp v7 same as v4 except with smooth kink"""
+		if True:
+			print ""
+			print "----- EVAPORATION RAMP Version 7-----"
+			print "\tp0       = %.4f" % p0
+			print "\tp1       = %.4f" % p1
+			print "\tt1       = %.4f" % t1
+			print "\ttau      = %.4f" % tau
+			print "\tbeta     = %.4f" % beta
+			print "\toffset   = %.4f" % offset
+			print "\tt2       = %.4f" % t2
+			print "\ttau2     = %.4f" % tau2
+			print "\tduration = %.4f" % duration
+			
+		if duration <=0:
+			return
+		else:
+			N=int(round(duration/self.ss))
+			print '\t...Evap nsteps = ' + str(N)
+			ramp_phys=[]
+			ramp=[]
+			hashbase = '%.8f,%.8f,%.8f,%.8f,%.8f,%.8f,%s,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f ' \
+			           % ( b,m1,m2,m3,kink1,kink2, self.name, self.ss, duration, p0, p1, t1, tau, beta, offset, t2, tau2,smoothdt)
+
+			ramphash = seqconf.ramps_dir() +'Evap7_' \
+						+ hashlib.md5( hashbase).hexdigest()
+			#Here, go ahead and save the trajectory path to the report
+			gen.save_to_report('EVAP','ramp', ramphash+'_phys')
+			if not os.path.exists(ramphash):
+				print '\t...Making new Evap7 ramp'
+				for xi in range(N):
+					t = (xi+1)*self.ss
+					phys = evap.v6(t,p0,p1,t1,tau,beta, offset,t2,tau2,smoothdt)                    
+					volt = OdtpowConvert(phys)
+					ramp_phys = numpy.append( ramp_phys, [ phys])
+					ramp = numpy.append( ramp, [ volt])
+				ramp_phys.tofile(ramphash+'_phys',sep='\n',format="%.4f")
+				ramp.tofile(ramphash,sep=',',format="%.4f")
+			else:
+				print '\t...Recycling previously calculated Evap7 ramp'
+				ramp = numpy.fromfile(ramphash,sep=',')
+
+			self.y=numpy.append(self.y,ramp)
+
+		#This returns the last value of the ramp
+		print ""
+		return evap.v6(N*self.ss,p0,p1,t1,tau,beta,offset,t2,tau2,smoothdt)
 		
 	def SineMod(self, p0, dt, freq, depth):
 		"""Sine wave modulation on channel"""

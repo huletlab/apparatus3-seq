@@ -2,6 +2,9 @@ import matplotlib.pyplot as pyplot
 import numpy as np
 import seqconf
 import os
+import argparse
+
+endofline="\n"
 
 class parse_seq:
     
@@ -15,17 +18,17 @@ class parse_seq:
         self.file_path = file_path
         
         self.folder, self.filename = os.path.split(self.file_path)
-        
-        self.seq = open(self.file_path,'r').readlines()
-        
+        #print self.folder, self.filename
+        self.seq = open(self.file_path,'rU').readlines()
+        #~ print [self.seq[-1]]
         self.analog_waveforms_position = []
 
         for position, str in enumerate(self.seq[1:]):	
     
-            if (str == '#\n'):
+            if (str == '#'+endofline): 
 
                 self.analog_waveforms_position.append(position+1) # Plus one since we start from seq[1]
-
+        #~ print self.analog_waveforms_position
         """Parse Digital Waveforms"""
 
         self.digi_step = float(self.seq[1].split(" ")[1])
@@ -66,10 +69,10 @@ class parse_seq:
 
             self.analog_temp = self.seq[(self.analog_waveforms_position[i]+2):(self.analog_waveforms_position[i+1])]
 
-            self.analog_time0.append(float(self.analog_temp.pop(0).split("\t")[1].replace('\n','')))
+            self.analog_time0.append(float(self.analog_temp.pop(0).split("\t")[1].replace(endofline,'')))
 
 
-            self.analog_step.append(float(self.analog_temp.pop(0).split("\t")[1].replace('\n','')))
+            self.analog_step.append(float(self.analog_temp.pop(0).split("\t")[1].replace(endofline,'')))
 
             self.analog_channels.append([])
 
@@ -79,20 +82,18 @@ class parse_seq:
 
             for index, analog in enumerate(self.analog_temp):
                 
-                analog.replace('\n','')
+                analog.replace(endofline,'')
 
                 if ( index % 2 ) == 0:
                     
-                    self.analog_channels[i].append(analog.replace('\n',''))
+                    self.analog_channels[i].append(analog.replace(endofline,''))
                     
                 else:
                     
                     self.analog_data[i].append( [ float(j) for j in analog.replace(' ','').split(',') ] )
 
                     
-            self.analog_time[i] = list(np.arange(0, len(self.analog_data[i][0])*(self.analog_step[i]), self.analog_step[i])  + self.analog_time0[i])
-
-
+            self.analog_time[i] = list(np.arange(0, len(self.analog_data[i][0]), 1)*self.analog_step[i]  + self.analog_time0[i])
     
     def plot_analog(self):
     
@@ -249,12 +250,13 @@ class parse_seq:
 
 if __name__ == '__main__':
     
-    a=parse_seq('C:/Users/Ernie/Documents/GitHub/apparatus3-seq/benchmark/data/2012_06_19_16_00/Evap_UVMOT_MultiPulse_Image_ZEROCROSSING.txt')
 
-    b=parse_seq('C:/Users/Ernie/Documents/GitHub/apparatus3-seq/benchmark/data/2012_06_19_16_00/Evap_UVMOT_MultiPulse_Image_ZEROCROSSING.txt')
-
-    a.diff(b)
     
+    a=parse_seq('/lab/data/app3/2012/1209/120910/expseq3591.txt')
 
+        
+    b=parse_seq('/lab/data/app3/2012/1209/120910/expseq3590.txt')
 
-
+    dc,dm,dd = a.diff(b)
+    
+    print dm

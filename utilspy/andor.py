@@ -124,6 +124,92 @@ def AndorKinetics(s,exp,light,flash):
 	
 	return s
 
+
+def KineticSeries4_SmartBackground(s, exp, light, noatoms, bg):
+    #Takes a kinetic series of 4 exposures:  atoms, noatoms, atomsref, noatomsref
+    
+    #print s.digital_chgs_str(1000,100000.,['cameratrig','probe','odtttl','prshutter'])
+    
+    t0 = s.tcur
+    
+    #OPEN SHUTTERS
+    if light == 'probe':
+        s=OpenShuttersProbe(s)
+    elif light == 'motswitch':
+        s=OpenShuttersFluor(s)
+    
+    #print s.digital_chgs_str(1000,100000.,['cameratrig','probe','odtttl','prshutter'])
+
+    bgdict={}
+    for ch in bg:
+        bgdict[ch] = s.digistatus(ch)
+        
+    
+    #PICTURE OF ATOMS
+    s=AndorKinetics(s,exp,light,1) 
+
+
+    #print s.digital_chgs_str(1000,100000.,['cameratrig','probe','odtttl','prshutter'])
+    
+    
+    #SHUT DOWN TRAP, THEN TURN BACK ON FOR SAME BACKGROUND
+    #minimum time for no atoms is given by max trigger period in Andor settings
+    s.wait(noatoms)
+    s.digichg('quick2',0)
+    s.digichg('field',0)
+    s.digichg('odtttl',0)
+    s.digichg('irttl1',0)
+    s.digichg('irttl2',0)
+    s.digichg('irttl3',0)
+    s.digichg('greenttl1',0)
+    s.digichg('greenttl2',0)
+    s.digichg('greenttl3',0)
+    s.wait(noatoms)
+    
+    #RESTORE LIGHTS FOR BACKGROUND
+    for key in bgdict.keys():
+        s.digichg( key, bgdict[key])
+    s.wait(noatoms)
+    
+    #PICTURE OF BACKGROUND
+    s=AndorKinetics(s,exp,light,1)
+    
+    s.wait(noatoms*1)
+    s.digichg('odtttl',0)
+    s.digichg('irttl1',0)
+    s.digichg('irttl2',0)
+    s.digichg('irttl3',0)
+    s.digichg('greenttl1',0)
+    s.digichg('greenttl2',0)
+    s.digichg('greenttl3',0)
+    s.wait(noatoms*3)
+    
+    s.digichg('camerashut',0)
+    s.digichg('prshutter',1)
+    #REPRODUCE THE ABOVE TO TAKE REFERENCE IMAGES: flash=0
+    s.wait(500) #Allow generous time for camera to complete a keep clean cycle
+    
+    if light == 'probe':
+        s=OpenShuttersProbe(s)
+    elif light == 'motswitch':
+        s=OpenShuttersFluor(s)
+    
+    #PICTURE OF ATOMS
+    s=AndorKinetics(s,exp,light,0)
+    
+    #SHUT DOWN TRAP, THEN TURN BACK ON FOR SAME BACKGROUND
+    #minimum time for no atoms is given by max trigger period in Andor settings
+    s.wait(noatoms) 
+    s.wait(noatoms)
+    s.wait(noatoms)
+    #PICTURE OF BACKGROUND
+    s=AndorKinetics(s,exp,light,0)
+    
+    tf = s.tcur
+    return s, tf-t0
+
+
+
 def KineticSeries4(s, exp, light, noatoms, trap):
     #Takes a kinetic series of 4 exposures:  atoms, noatoms, atomsref, noatomsref
     
@@ -148,6 +234,7 @@ def KineticSeries4(s, exp, light, noatoms, trap):
     #SHUT DOWN TRAP, THEN TURN BACK ON FOR SAME BACKGROUND
     #minimum time for no atoms is given by max trigger period in Andor settings
     s.wait(noatoms)
+    s.digichg('quick2',0)
     s.digichg('field',0)
     s.digichg('odtttl',0)
     s.digichg('irttl1',0)

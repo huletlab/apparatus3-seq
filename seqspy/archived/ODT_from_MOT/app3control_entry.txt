@@ -1,0 +1,1 @@
+7 = ODT from MOT, - Does CNC red MOT%n%n- Overlaps CNC hold time with ODT [ODT:overlapdt]%n%n- Turns off light and after [ANDOR:tof] takes in-situ absorption images with Andor camera at zero field.

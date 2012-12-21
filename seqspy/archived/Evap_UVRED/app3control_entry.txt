@@ -1,0 +1,1 @@
+13 = Evap UVRED, - Loads UVRED into ODT%n%n- Goes to high field [FESHBACH:bias]%n%n- Holds in trap during [EVAP:free] then evaporates during [EVAP:image]%n%n- Realeases atoms from ODT and then takes absorption image after [ODT:odttof] 

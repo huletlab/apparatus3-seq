@@ -194,6 +194,7 @@ s.digichg('odt7595',0)
 
 import seqconf
 s.save( seqconf.seqtxtout() )
+s.save( __file__.split('.')[0]+'.txt')
 s.clear_disk()
         
 print '...Compilation = %.2f seconds\n' % (time.time()-t0)
