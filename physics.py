@@ -2,8 +2,6 @@ import numpy as np
 from scipy.interpolate import interp1d
 import matplotlib.pyplot as plt
 
-
-
 def getInterpolationData ():
    dat = np.loadtxt('physics/scatt_length.dat')
    f = interp1d( dat[:,0], dat[:,1] , kind ='cubic') 
@@ -24,9 +22,14 @@ def interpdat( datfile, x, y, array):
    return f(array) 
 
 channel_list = [ 
+                 'odtdepth(100uK)', \
+                 'odtfreqAx(100Hz)', \
+                 'odtfreqRd(100Hz)', \
+                 'odtfreqRdZ(100Hz)', \
                  'bfield(G)', \
                  'bfield(100G)', \
-                 'a_s(100a0)', \
+                 'ainns(100a0)', \
+                 'arice(100a0)', \
                ]   
 
 class calc:
@@ -38,6 +41,21 @@ class calc:
    def calculate(self, ch):
       if ch in self.calcwfms.keys():
          return self.calcwfms[ch]
+
+      ### Calculate trap depth and frequencies
+      if ch == 'odtdepth(100uK)':
+         return ([],[])
+
+      if ch == 'odtfreqAx(100Hz)':
+         return ([],[])
+
+      if ch == 'odtfreqRd(100Hz)':
+         return ([],[])
+
+      if ch == 'odtfreqRdZ(100Hz)':
+         return ([],[])
+
+      ### Calculate Bfield
  
       if ch == 'bfield(G)':
          self.calcwfms[ch] = bfield_G(self.wfms)
@@ -49,19 +67,43 @@ class calc:
          base = self.calcwfms['bfield(G)']
          self.calcwfms[ch] = (base[0], base[1]/100.) 
          return self.calcwfms[ch]
+      
+      ### Calculate scattering length
+      if ch == 'ainns(100a0)':
+         if 'bfield(G)' not in self.calcwfms.keys():
+            self.calculate('bfield(G)')
+         base = self.calcwfms['bfield(G)']
+         a_s = interpdat( 'physics/ainns.dat', 0, 1, base[1]) / 100. 
+         self.calcwfms[ch] = (base[0], a_s)
+         return self.calcwfms[ch]
 
+      if ch == 'arice(100a0)':
+         if 'bfield(G)' not in self.calcwfms.keys():
+            self.calculate('bfield(G)')
+         base = self.calcwfms['bfield(G)']
+         a_s = interpdat( 'physics/arice.dat', 0, 1, base[1]) / 100. 
+         self.calcwfms[ch] = (base[0], a_s)
+         return self.calcwfms[ch]
+
+      ### Calculate lattice,dimple depth and frequencies 
+
+      ### Calculate on-site interactions  
+    
+  
       else:
          print "Physical channel not found: %s", ch
 
 
-def scatt_length():
-   """This function calculates the scattering length"""
-   pass
+### Calculate trap depth and frequencies
+
+
+
+
+### Calculate Bfield
 
 def bfield_G( wfms):
    """This function calculates the bfield in Gauss """
    print "\nCalculating:  bfield_G ... "
-
    #extract the bfield waveform data
    bfield = wfms['bfield']
    bfield = [out[0] for out in bfield]
@@ -72,8 +114,18 @@ def bfield_G( wfms):
 
    return times, interpdat( 'physics/bfield.dat', 0, 1, bfield) * 6.8 
   
-      
+### Calculate scattering length
+ 
+def scatt_length():
+   """This function calculates the scattering length"""
+   pass
        
+
+### Calculate lattice,dimple depth and frequencies 
+
+
+
+### Calculate on-site interactions  
 
 def onsite_int( wfms):
    """This function calculates the onsite interaction U"""
