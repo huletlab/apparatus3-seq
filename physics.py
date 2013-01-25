@@ -2,124 +2,188 @@ import numpy as np
 from scipy.interpolate import interp1d
 import matplotlib.pyplot as plt
 
-def getInterpolationData ():
-   dat = np.loadtxt('physics/scatt_length.dat')
-   f = interp1d( dat[:,0], dat[:,1] , kind ='cubic') 
-   
-   x = np.linspace( np.amin(dat[:,0]), np.amax(dat[:,0]), 100)
-   plt.plot( dat[:,0], dat[:,1], 'o', x, f(x), '-')
-   plt.legend(['data','cubic'], loc='best')
-   plt.show()
-
-
-if __name__ == '__main__':
-  getInterpolationData()
-   
-
-def interpdat( datfile, x, y, array):
-   dat = np.loadtxt( datfile, usecols  = (x,y))
-   f = interp1d( dat[:,0], dat[:,1], kind='cubic')
-   return f(array) 
+import argparse
 
 channel_list = [ 
+                 'odtfcpow', \
+                 'odtdepth(1uK)', \
                  'odtdepth(100uK)', \
                  'odtfreqAx(100Hz)', \
                  'odtfreqRd(100Hz)', \
                  'odtfreqRdZ(100Hz)', \
+                 'bfield(Amp)', \
                  'bfield(G)', \
                  'bfield(100G)', \
                  'ainns(100a0)', \
                  'arice(100a0)', \
                ]   
 
+#
+#General operations for physical data calculations 
+# 
+def interpdat( datfile, x, y, dat):
+   table = np.loadtxt( datfile, usecols  = (x,y))
+   try:
+      f = interp1d( table[:,0], table[:,1], kind='cubic')
+   except ValueError as e:
+      print e
+      print "Could not define interpolation function"
+      f = lambda x: x 
+   try:
+      out = f(dat[:,1])
+   except ValueError as e:
+      out = dat[:,1] 
+      print "Error when trying to interpolate from:"
+      print "\t",datfile 
+      print "\tTable range is  (%f,%f)" % (np.amin(table[:,0]), np.amax(table[:,0]) )
+      print "\tData xrange is  (%f,%f)" % (np.amin(dat[:,1]), np.amax(dat[:,1]))
+      print dat
+     
+   return (dat[:,0], out)
+
+def scaleFactor( dat, scale ):
+   """Takes some calculate data and scales the Y array"""
+   return (dat[0], dat[1]*scale) 
+
+#Run standalone to test interpolation of a table file
+if __name__ == '__main__':
+  parser = argparse.ArgumentParser('physics.py')
+  parser.add_argument('datfile',action="store",type=str, help='datfile to plot')
+  parser.add_argument('xcol',action="store",type=int, help='x column index')
+  parser.add_argument('ycol',action="store",type=int, help='y column index')
+  args=parser.parse_args() 
+  
+  dat = np.loadtxt( args.datfile, usecols  = (args.xcol,args.ycol))
+  xdat = dat[:,0]
+  ydat = dat[:,1]
+  
+  stackdat = np.transpose(np.vstack( (xdat,xdat) ))
+  itpd =  interpdat( args.datfile, args.xcol, args.ycol, stackdat) 
+  
+  plt.plot( xdat, ydat, 'o', itpd[0], itpd[1], '-')
+  plt.legend(['data','cubic'], loc='best')
+  plt.show()
+
+
+#
+#Class for calculating quantities
+#
 class calc:
    def __init__(self, wfms ):
       self.wfms = wfms
       self.calcwfms = {}
       self.ch_list = channel_list
+
+   def basicConversion( self, datfile, colX, colY, ch):
+      """A basic channel can be converted via a single dat file"""
+      dat = self.wfms[ch]
+      dat = [out[0] for out in dat]
+      dat = np.concatenate( dat, axis=0)
+      return interpdat( datfile, colX, colY, dat) 
       
+   def interpch( self, datfile, x, y, ch):
+      return interpdat(datfile, x, y, np.transpose(np.vstack(self.calcwfms[ch])) )
+
+   def prereq( self, ch ):
+      if ch not in self.calcwfms.keys():
+         self.calculate(ch)
+      else:
+         print "......reusing %s as prerequisite" % ch
+ 
    def calculate(self, ch):
       if ch in self.calcwfms.keys():
          return self.calcwfms[ch]
 
       ### Calculate trap depth and frequencies
-      if ch == 'odtdepth(100uK)':
-         return ([],[])
-
-      if ch == 'odtfreqAx(100Hz)':
-         return ([],[])
-
-      if ch == 'odtfreqRd(100Hz)':
-         return ([],[])
-
-      if ch == 'odtfreqRdZ(100Hz)':
-         return ([],[])
-
-      ### Calculate Bfield
- 
-      if ch == 'bfield(G)':
-         self.calcwfms[ch] = bfield_G(self.wfms)
+      elif ch == 'odtfcpow': 
+         self.calcwfms[ch] = self.basicConversion('physics/odtfcpow.dat', 0, 1, 'odtpow') 
          return self.calcwfms[ch] 
 
-      if ch == 'bfield(100G)':
-         if 'bfield(G)' not in self.calcwfms.keys():
-            self.calculate('bfield(G)')
-         base = self.calcwfms['bfield(G)']
-         self.calcwfms[ch] = (base[0], base[1]/100.) 
+      elif ch == 'odtdepth(1uK)':
+         self.prereq('odtfcpow')
+         self.calcwfms[ch] = self.interpch('physics/odt.dat', 0, 1, 'odtfcpow')
+         return self.calcwfms[ch] 
+
+      elif ch == 'odtdepth(100uK)':
+         self.prereq('odtfcpow')
+         self.calcwfms[ch] = scaleFactor(self.interpch('physics/odt.dat', 0, 1, 'odtfcpow'), 1/100.)
+         return self.calcwfms[ch] 
+
+      elif ch == 'odtfreqAx(100Hz)':
+         self.prereq('odtfcpow')
+         self.calcwfms[ch] = scaleFactor(self.interpch('physics/odt.dat', 0, 2, 'odtfcpow'), 1/100.)
+         return self.calcwfms[ch] 
+
+      elif ch == 'odtfreqRd(100Hz)':
+         self.prereq('odtfcpow')
+         self.calcwfms[ch] = scaleFactor(self.interpch('physics/odt.dat', 0, 3, 'odtfcpow'), 1/100.)
+         return self.calcwfms[ch] 
+
+      elif ch == 'odtfreqRdZ(100Hz)':
+         self.prereq('odtfcpow')
+         self.calcwfms[ch] = scaleFactor(self.interpch('physics/odt.dat', 0, 4, 'odtfcpow'), 1/100.)
+         return self.calcwfms[ch] 
+
+
+      ### Calculate Bfield
+      elif ch == 'bfield(Amp)':
+         self.calcwfms[ch] = self.basicConversion('physics/bfield.dat', 0, 1, 'bfield')
+         return self.calcwfms[ch] 
+ 
+      elif ch == 'bfield(G)':
+         self.prereq('bfield(Amp)')
+         self.calcwfms[ch] = scaleFactor( self.calcwfms['bfield(Amp)'], 6.8 )
+         return self.calcwfms[ch] 
+
+      elif ch == 'bfield(100G)':
+         self.prereq('bfield(G)')
+         self.calcwfms[ch] = scaleFactor( self.calcwfms['bfield(G)'], 1/100.) 
          return self.calcwfms[ch]
       
       ### Calculate scattering length
-      if ch == 'ainns(100a0)':
-         if 'bfield(G)' not in self.calcwfms.keys():
-            self.calculate('bfield(G)')
-         base = self.calcwfms['bfield(G)']
-         a_s = interpdat( 'physics/ainns.dat', 0, 1, base[1]) / 100. 
-         self.calcwfms[ch] = (base[0], a_s)
+      elif ch == 'ainns(100a0)':
+         self.prereq('bfield(G)')
+         self.calcwfms[ch] = scaleFactor(self.interpch( 'physics/ainns.dat', 0, 1, 'bfield(G)' ), 1/100.)
          return self.calcwfms[ch]
 
-      if ch == 'arice(100a0)':
-         if 'bfield(G)' not in self.calcwfms.keys():
-            self.calculate('bfield(G)')
-         base = self.calcwfms['bfield(G)']
-         a_s = interpdat( 'physics/arice.dat', 0, 1, base[1]) / 100. 
-         self.calcwfms[ch] = (base[0], a_s)
+      elif ch == 'arice(100a0)':
+         self.prereq('bfield(G)')
+         self.calcwfms[ch] = scaleFactor(self.interpch( 'physics/arice.dat', 0, 1, 'bfield(G)' ), 1/100.)
          return self.calcwfms[ch]
 
       ### Calculate lattice,dimple depth and frequencies 
 
       ### Calculate on-site interactions  
     
-  
       else:
-         print "Physical channel not found: %s", ch
+         print "Physical channel not found: %s" %  ch
 
 
+   
 ### Calculate trap depth and frequencies
 
+def odtfcpow( wfms):
+   """This function calculates cpow, calibrated power for the odt.
+      fcpow goes from 0 to 10. 
+      
+      The table for the conversion from voltage to cpow is calculated
+      using the odt.py module, inside the seq directory.  
+      Type python odt.py 
 
-
-
-### Calculate Bfield
-
-def bfield_G( wfms):
-   """This function calculates the bfield in Gauss """
-   print "\nCalculating:  bfield_G ... "
-   #extract the bfield waveform data
-   bfield = wfms['bfield']
-   bfield = [out[0] for out in bfield]
-   bfield = np.concatenate( bfield, axis=0)
-
-   times = bfield[:,0]
-   bfield = bfield[:,1]
-
+      The table is saved in physics/odtfcpow.dat""" 
+   odtpow = wfms['odtpow']
+   odtpow = [out[0] for out in odtpow]
+   odtpow = np.concatenate( odtpow, axis=0)
+   
+   times = odtpow[:,0]
+   odtpow = odtpow[:,1]
    return times, interpdat( 'physics/bfield.dat', 0, 1, bfield) * 6.8 
-  
-### Calculate scattering length
- 
-def scatt_length():
-   """This function calculates the scattering length"""
-   pass
-       
+
+   
+   
+
+
+
 
 ### Calculate lattice,dimple depth and frequencies 
 

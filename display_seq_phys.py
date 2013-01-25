@@ -35,9 +35,15 @@ else:
 print "DEFAULT_FILE = ",default_file
 
 
+#Initialize sequence count iterator
+seqct = 0
+
+
 #The sequence class contains the digital and analog wavforms
 #for a given sequence 
 class sequence(HasTraits):
+
+    calcwfms = {}
 
     # Data elements
     name = Str
@@ -71,22 +77,45 @@ class sequence(HasTraits):
     # Define the action when the LOAD button is pressed
     # There used to be a RELOAD button, but not anymore
     def _load_fired(self):
+
+        #Find out which channels has the user already selected
+        #selected_digital = 
+        if len(self.waveforms) == 3:
+            selected_digital = self.waveforms[0].select_channels
+            selected_analog = self.waveforms[1].select_channels
+            selected_physical = self.waveforms[2].select_channels
+        else:
+            selected_digital = []
+            selected_analog = []
+            selected_physical = []
         
         #Load the sequence sequence
         self.seq = parse_seq(self.txtfile)
+
+        #Get the intersection of the selected and available channels
+        selected_digital = list( set(selected_digital) & \
+                                 set(self.seq.digi_channels))
+        selected_analog = list( set(selected_analog) & \
+                                set(self.seq.flat_analog_chs))
+        selected_physical = list( set(selected_physical) & \
+                                  set(physics.channel_list) )
+         
         
         #Store all waveforms in an array
         self.waveforms= []
         self.waveforms.append( waveform( name= 'Digital', \
                                channels = self.seq.digi_channels, \
+                               select_channels = selected_digital, \
                                time = self.seq.digi_time, \
                                data = self.seq.digi_data))
         self.waveforms.append( waveform( name= 'Analog', \
                                channels = self.seq.flat_analog_chs, \
+                               select_channels = selected_analog, \
                                time = self.seq.flat_analog_times, \
                                data = self.seq.flat_analog_data))
         self.waveforms.append( waveform( name= 'Physical', \
                                channels = physics.channel_list, \
+                               select_channels = selected_physical, \
                                time = [], \
                                data = []))
         self.loaded = True
@@ -147,7 +176,11 @@ class MainWindow(HasTraits):
     
     #Here are the elements of the main window
     figure = Figure()
-    seqs = List([sequence(name='S0',txtfile=default_file)])
+
+    global seqct
+    seqct = seqct + 1  #increment seq counter
+    seqs = List([sequence(name='S%d' % seqct,txtfile=default_file)])
+
     add = Button("Add Sequence")
     plot = Button("Plot")
 
@@ -213,7 +246,9 @@ class MainWindow(HasTraits):
 
     #Define action when a new sequence is added
     def _add_fired(self):
-        self.seqs.append( sequence( name= 'S%d' % len(self.seqs) , txtfile=default_file) )
+        global seqct
+        seqct = seqct + 1 
+        self.seqs.append( sequence( name= 'S%d' % seqct , txtfile=default_file) )
         
     #Define action when the plot button is pressed
     def _plot_fired(self):
@@ -258,6 +293,7 @@ class MainWindow(HasTraits):
         for seq in self.seqs:
             #Prepare the physical quantities calculator class   
             physical = physics.calc(seq.seq.wfms)
+            print ""
             for waveform in seq.waveforms:
                 for i, channel in enumerate( waveform.channels):
                     if channel in waveform.select_channels:
@@ -275,13 +311,20 @@ class MainWindow(HasTraits):
                             digi_counter_2 = digi_counter_2 + 1
                             
                         elif waveform.name == 'Analog':
-                            self.data_analog_time.append(waveform.time[i])
                             self.data_analog_names.append(seq.name + '_' + waveform.name + '_' + channel)
+                            self.data_analog_time.append(waveform.time[i])
                             self.data_analog.append(waveform.data[i])
                             
                         elif waveform.name == 'Physical':
                             self.data_analog_names.append(seq.name + '_' + waveform.name + '_' + channel)
-                            dat = eval("physical.calculate('"+channel+"')")
+                            if channel in seq.calcwfms.keys():
+                               print "...Reusing Physical: %s" % channel
+                               dat = seq.calcwfms[channel]
+                            else: 
+                               print "...Calculating Physical: %s" % channel
+                               dat = physical.calculate(channel)
+                               seq.calcwfms[channel] = dat
+
                             self.data_analog_time.append( dat[0] )
                             self.data_analog.append( dat[1] )
                                                         
