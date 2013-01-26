@@ -86,9 +86,10 @@ class calc:
 
    def prereq( self, ch ):
       if ch not in self.calcwfms.keys():
+         print "      calculating prerequisite: %s" % ch
          self.calculate(ch)
       else:
-         print "......reusing %s as prerequisite" % ch
+         print "      reusing prerequisite: %s" % ch
  
    def calculate(self, ch):
       if ch in self.calcwfms.keys():
@@ -96,6 +97,9 @@ class calc:
 
       ### Calculate trap depth and frequencies
       elif ch == 'odtfcpow': 
+         """The table for the conversion from voltage to cpow is calculated
+         using the odt.py module, inside the seq directory.  Type python odt.py 
+         The table is saved in physics/odtfcpow.dat""" 
          self.calcwfms[ch] = self.basicConversion('physics/odtfcpow.dat', 0, 1, 'odtpow') 
          return self.calcwfms[ch] 
 
@@ -107,6 +111,11 @@ class calc:
       elif ch == 'odtdepth(100uK)':
          self.prereq('odtfcpow')
          self.calcwfms[ch] = scaleFactor(self.interpch('physics/odt.dat', 0, 1, 'odtfcpow'), 1/100.)
+         return self.calcwfms[ch] 
+
+      elif ch == 'odtdepth(Er)':
+         self.prereq('odtfcpow')
+         self.calcwfms[ch] = scaleFactor(self.interpch('physics/odt.dat', 0, 1, 'odtfcpow'), 1/1.4)
          return self.calcwfms[ch] 
 
       elif ch == 'odtfreqAx(100Hz)':
@@ -151,7 +160,10 @@ class calc:
          self.calcwfms[ch] = scaleFactor(self.interpch( 'physics/arice.dat', 0, 1, 'bfield(G)' ), 1/100.)
          return self.calcwfms[ch]
 
-      ### Calculate lattice,dimple depth and frequencies 
+      ### Calculate lattice,dimple depth and frequencies
+      ### These start getting more complicated because they have two or more prerequisites
+      #elif ch == 'latticeV0(Er)':
+ 
 
       ### Calculate on-site interactions  
     
@@ -160,31 +172,6 @@ class calc:
 
 
    
-### Calculate trap depth and frequencies
-
-def odtfcpow( wfms):
-   """This function calculates cpow, calibrated power for the odt.
-      fcpow goes from 0 to 10. 
-      
-      The table for the conversion from voltage to cpow is calculated
-      using the odt.py module, inside the seq directory.  
-      Type python odt.py 
-
-      The table is saved in physics/odtfcpow.dat""" 
-   odtpow = wfms['odtpow']
-   odtpow = [out[0] for out in odtpow]
-   odtpow = np.concatenate( odtpow, axis=0)
-   
-   times = odtpow[:,0]
-   odtpow = odtpow[:,1]
-   return times, interpdat( 'physics/bfield.dat', 0, 1, bfield) * 6.8 
-
-   
-   
-
-
-
-
 ### Calculate lattice,dimple depth and frequencies 
 
 

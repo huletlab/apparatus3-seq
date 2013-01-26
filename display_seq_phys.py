@@ -55,11 +55,13 @@ class sequence(HasTraits):
     # Buttons
     loaded = False
     load = Button ('Load')
+    recalculate = Bool(False,label='Recalculate Physical?')
 
     # Define the view
     view = View(    
                     Item('txtfile'),
                     Item('load'),
+                    HGroup(spring, 'recalculate'),
                     VGroup(            
                         Item( 'waveforms',
                                 style  = 'custom',
@@ -183,6 +185,7 @@ class MainWindow(HasTraits):
 
     add = Button("Add Sequence")
     plot = Button("Plot")
+   
 
     
     data_digi = List()
@@ -237,6 +240,7 @@ class MainWindow(HasTraits):
                         HGroup( 'autorangeY', 'plot_rangeY_min', spring, 'plot_rangeY_max')
                           )
                       ),
+                title = 'Display Sequence',
                 width     = 1,
                 height    = 0.95,
                 resizable = True,
@@ -293,7 +297,7 @@ class MainWindow(HasTraits):
         for seq in self.seqs:
             #Prepare the physical quantities calculator class   
             physical = physics.calc(seq.seq.wfms)
-            print ""
+            print "\n--------  GETTING DATA TO PRODUCE PLOT  --------"
             for waveform in seq.waveforms:
                 for i, channel in enumerate( waveform.channels):
                     if channel in waveform.select_channels:
@@ -317,16 +321,17 @@ class MainWindow(HasTraits):
                             
                         elif waveform.name == 'Physical':
                             self.data_analog_names.append(seq.name + '_' + waveform.name + '_' + channel)
-                            if channel in seq.calcwfms.keys():
+                            if channel in seq.calcwfms.keys() and not seq.recalculate:
                                print "...Reusing Physical: %s" % channel
                                dat = seq.calcwfms[channel]
-                            else: 
+                            else:
                                print "...Calculating Physical: %s" % channel
                                dat = physical.calculate(channel)
                                seq.calcwfms[channel] = dat
 
                             self.data_analog_time.append( dat[0] )
                             self.data_analog.append( dat[1] )
+            seq.recalculate = False
                                                         
         
     def image_clear(self):
