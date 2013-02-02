@@ -2,433 +2,333 @@
 	
 """
 import sys
-sys.path.append('L:/software/apparatus3/seq/seq')
+sys.path.append('L:/software/apparatus3/seq')
 sys.path.append('L:/software/apparatus3/seq/utilspy')
 sys.path.append('L:/software/apparatus3/seq/seqspy')
 sys.path.append('L:/software/apparatus3/convert')
 import seqconf, wfm, gen, math, cnc, time, os, numpy, hashlib, evap, lattice
-
 report=gen.getreport()
 
 #GET SECTION CONTENTS
-evp = gen.getsection('EVAP')
-lbf  = gen.getsection('LATTICEBRAGGFIELD')
+ODT  = gen.getsection('ODT')
+EVAP = gen.getsection('EVAP')
+FB   = gen.getsection('FESHBACH')
+LBF  = gen.getsection('LATTICEBRAGGFIELD')
+IL   = gen.getsection('INTOLATTICE')
 
 
 def f(sec,key):
 	global report
 	return float(report[sec][key])
 	
-def crossbeam_evap(s, toENDBFIELD):
-	# Add evaporation ramp to ODT, returns sequence right at the end of evaporation
-	free = float(report['EVAP']['free'])
-	image= float(report['EVAP']['image'])
-	buffer=10.0 #Time needed to re-latch the trigger for the AOUTS
-	if free < buffer + toENDBFIELD :
-		print 'Need at list ' + str(buffer) + 'ms of free evap before evaporation can be triggered'
-		print 'Currently ramps end at %f , and free is %f' % (toENDBFIELD,free)
-		exit(1)
-	s.wait(free)
-	odtpow, ENDEVAP, cpowend, ipganalog = odt_evap(image)
-	evap_ss = float(report['EVAP']['evapss'])
-	s.analogwfm_add(evap_ss,[odtpow,ipganalog])
-	#s.analogwfm_add(evap_ss,[odtpow])
-	# ENDEVAP should be equal to image
-	s.wait(image)
-	return s, cpowend
-	
-	
-def crossbeam_evap_field(s, toENDBFIELD):
-	# Add evaporation ramp to ODT, returns sequence right at the end of evaporation
-	free = float(report['EVAP']['free'])
-	image= float(report['EVAP']['image'])
-	buffer=10.0 #Time needed to re-latch the trigger for the AOUTS
-	if free < buffer + toENDBFIELD :
-		print 'Need at list ' + str(buffer) + 'ms of free evap before evaporation can be triggered'
-		print 'Currently ramps end at %f , and free is %f' % (toENDBFIELD,free)
-		exit(1)
-	s.wait(free)
-	bfield, odtpow, ENDEVAP, cpowend, ipganalog = odt_evap_field(image)
-	evap_ss = float(report['EVAP']['evapss'])
-	s.analogwfm_add(evap_ss,[odtpow,ipganalog, bfield])
-	#s.analogwfm_add(evap_ss,[odtpow])
-	# ENDEVAP should be equal to image
-	s.wait(image)
-	return s, cpowend
-	
-
-def crossbeam_evap_field_into_lattice(s, toENDBFIELD):
-	# Add evaporation ramp to ODT, returns sequence right at the end of evaporation
-	free = float(report['EVAP']['free'])
-	image= float(report['EVAP']['image'])
-	buffer=10.0 #Time needed to re-latch the trigger for the AOUTS
-	if free < buffer + toENDBFIELD :
-		print 'Need at list ' + str(buffer) + 'ms of free evap before evaporation can be triggered'
-		print 'Currently ramps end at %f , and free is %f' % (toENDBFIELD,free)
-		exit(1)
-	s.wait(free)
-	bfield, odtpow, ENDEVAP, cpowend, ipganalog = odt_evap_field(image)
-	evap_ss = float(report['EVAP']['evapss'])
-	
-	ir1  = lattice.lattice_wave('ir1pow', 0., evap_ss)
-	ir2  = lattice.lattice_wave('ir2pow', 0., evap_ss)
-	ir3  = lattice.lattice_wave('ir3pow', 0., evap_ss)
-	
-	gr1  = lattice.lattice_wave('greenpow1', 0., evap_ss)
-	gr2  = lattice.lattice_wave('greenpow2', 0., evap_ss)
-	gr3  = lattice.lattice_wave('greenpow3', 0., evap_ss)
-	
-	all = [ir1,ir2,ir3,gr1,gr2,gr3]
-	pow = [evp.irpow, evp.irpow, evp.irpow, evp.grpow, evp.grpow, evp.grpow]
-	
-	for i,ch in enumerate(all):
-	  ch.appendhold( evp.latticet0 )
-	  ch.tanhRise(pow[i], evp.latticedt, evp.tanhtau, evp.tanhshift)
-	
-	s.wait(evp.latticet0)
-	s.digichg( 'irttl1', evp.irttl1)
-	s.digichg( 'irttl2', evp.irttl2)
-	s.digichg( 'irttl3', evp.irttl3)
-	s.digichg( 'greenttl1', evp.irttl1)
-	s.digichg( 'greenttl2', evp.irttl2)
-	s.digichg( 'greenttl3', evp.irttl3)
-	s.wait(-evp.latticet0)
-	
-	
-	s.analogwfm_add(evap_ss,[odtpow,ipganalog, bfield,ir1,ir2,ir3,gr1,gr2,gr3])
-	
-	
-
-	# ENDEVAP should be equal to image
-	s.wait(image)
-	return s, cpowend
 
 
-def crossbeam_evap_into_lattice(s, toENDBFIELD):
-	# Add evaporation ramp to ODT, returns sequence right at the end of evaporation
-	free = float(report['EVAP']['free'])
-	image= float(report['EVAP']['image'])
-	buffer=10.0 #Time needed to re-latch the trigger for the AOUTS
-	if free < buffer + toENDBFIELD :
-		print 'Need at list ' + str(buffer) + 'ms of free evap before evaporation can be triggered'
-		print 'Currently ramps end at %f , and free is %f' % (toENDBFIELD,free)
-		exit(1)
-	s.wait(free)
-	odtpow, ENDEVAP, cpowend, ipganalog = odt_evap(image)
-	# ENDEVAP should be equal to image
-	evap_ss = float(report['EVAP']['evapss'])
-	
-	
-	# Ramp up IR and green beams
-	irramp1 = float(report['INTOLATTICE']['irrampdt1'])
-	irramp2 = float(report['INTOLATTICE']['irrampdt2'])
-	irramp3 = float(report['INTOLATTICE']['irrampdt3'])
-	irdelay1 = float(report['INTOLATTICE']['irdelay1'])
-	irdelay2 = float(report['INTOLATTICE']['irdelay2'])
-	irdelay3 = float(report['INTOLATTICE']['irdelay3'])
-
-	ir1  = wfm.wave('ir1pow', 0., evap_ss)
-	ir2  = wfm.wave('ir2pow', 0., evap_ss)
-	ir3  = wfm.wave('ir3pow', 0., evap_ss)
-	
-	loadtime = float(report['INTOLATTICE']['loadtime'])
-	
-	ir1.appendhold( ENDEVAP - loadtime)
-	ir2.appendhold( ENDEVAP - loadtime)
-	ir3.appendhold( ENDEVAP - loadtime)
-
-	ir1.appendhold(irdelay1)
-	ir2.appendhold(irdelay2)
-	ir3.appendhold(irdelay3)
-
-	ir1.linear(float(report['INTOLATTICE']['irpow1']),irramp1)
-	ir2.linear(float(report['INTOLATTICE']['irpow2']),irramp2)
-	ir3.linear(float(report['INTOLATTICE']['irpow3']),irramp3)
-
-	gr1  = wfm.wave('greenpow1', 0., evap_ss)
-	gr2  = wfm.wave('greenpow2', 0., evap_ss)
-	gr3  = wfm.wave('greenpow3', 0., evap_ss)
-	
-	gr1.appendhold( ENDEVAP - loadtime)
-	gr2.appendhold( ENDEVAP - loadtime)
-	gr3.appendhold( ENDEVAP - loadtime)
-
-	grdelay1 = float(report['INTOLATTICE']['grdelay1'])
-	grdelay2 = float(report['INTOLATTICE']['grdelay2'])
-	grdelay3 = float(report['INTOLATTICE']['grdelay3'])
-
-	gr1.appendhold(grdelay1)
-	gr2.appendhold(grdelay2)
-	gr3.appendhold(grdelay3)
-
-	grramp1 = float(report['INTOLATTICE']['grrampdt1'])
-	grramp2 = float(report['INTOLATTICE']['grrampdt2'])
-	grramp3 = float(report['INTOLATTICE']['grrampdt3'])
-	gr1.linear(float(report['INTOLATTICE']['grpow1']),grramp1)
-	gr2.linear(float(report['INTOLATTICE']['grpow2']),grramp2)
-	gr3.linear(float(report['INTOLATTICE']['grpow3']),grramp3)
-
-	
-	#end = s.analogwfm_add(evap_ss,[odtpow,ipganalog,ir1,ir2,ir3,gr1,gr2,gr3])
-	end = s.analogwfm_add(evap_ss,[odtpow,ir1,ir2,ir3,gr1,gr2,gr3])
-	
-	
-	s.wait(image-loadtime)
-	
-	# Turn on IR lattice beams
-	s.wait(irdelay1)
-	s.digichg('irttl1', float(report['INTOLATTICE']['ir1']) )
-	s.wait(-irdelay1+irdelay2)
-	s.digichg('irttl2', float(report['INTOLATTICE']['ir2']) )
-	s.wait(-irdelay2+irdelay3)
-	s.digichg('irttl3', float(report['INTOLATTICE']['ir3']) )
-	s.wait(-irdelay3)
-
-	s.wait(grdelay1)
-	s.digichg('greenttl1', float(report['INTOLATTICE']['gr1']) )
-	s.wait(-grdelay1+grdelay2)
-	s.digichg('greenttl2', float(report['INTOLATTICE']['gr2']) )
-	s.wait(-grdelay2+grdelay3)
-	s.digichg('greenttl3', float(report['INTOLATTICE']['gr3']) )
-	s.wait(-grdelay3)
-	
-	s.wait(loadtime + end - image)	
-	
-	return s
-	
-	
-def odt_evap(image):
-	evap_ss = f('EVAP','evapss')
-
-	p0   = f('ODT','odtpow')
-	p1   = f('EVAP','p1')
-	t1   = f('EVAP','t1')
-	tau  = f('EVAP','tau')
-	beta = f('EVAP','beta')
-	
-	offset = f('EVAP','offset')
-	t2     = f('EVAP','t2')
-	tau2   = f('EVAP','tau2')
-	smoothdt   = f('EVAP','smoothdt')
-
-		
-	odtpow = odt_wave('odtpow', p0, evap_ss)
-	#odtpow.Evap(p0, p1, t1, tau, beta, image)
-	#odtpow.Evap2(p0, p1, t1, tau, beta, offset, t2, tau2, image)
-	#odtpow.Evap3(p0, p1, t1, tau, beta, offset, t2, tau2, image)
-	
+def odt_evap(scale=1.0):
+	odtpow = odt_wave('odtpow', ODT.p0, ODT.evapss)
 	### SELECT EVAP TRAJECTORY HERE###
-	finalcpow = odtpow.Evap7(p0, p1, t1, tau, beta, offset, t2, tau2,smoothdt,image)
-	
-	#Here, go ahead and save the finalcpow to the report
+	finalcpow = odtpow.Evap8(\
+							ODT.odtpow, \
+							EVAP.p1, \
+							EVAP.t1, 
+							EVAP.tau, \
+							EVAP.beta, \
+							EVAP.offset, \
+							EVAP.t2, \
+							EVAP.tau2, \
+							EVAP.smoothdt, \
+							EVAP.image, \
+							EVAP.scale \
+							)
+	#---Here, go ahead and save the finalcpow to the report
 	gen.save_to_report('EVAP','finalcpow', finalcpow)
 	
-	#ipganalog starts out at full power
+	#---Setup ipganalog ramp
 	ipganalog = ipg_wave('ipganalog', 10., evap_ss)
-	
-	if f('ODT','use_servo') == 0:
+	if ODT.use_servo == 0:
 		ipganalog.extend( odtpow.dt() )
-	elif f('ODT','use_servo') == 1:
+	elif ODT.use_servo == 1:
 		ipganalog.follow( odtpow )
-	#~ ipganalog.follow( odtpow )
-
-	#~ odtpow.Exponential(pow0,powf,evap_dt,tau)
-	#~ odtpow.linear( powf, evap_ss)
-	#~ odtpow.appendhold( evap_dt)
 	
 	maxDT = odtpow.dt()
-	
 	return odtpow, maxDT, finalcpow, ipganalog
+	
 
-def odt_evap_field(image):
-	evap_ss = f('EVAP','evapss')
 
-	p0   = f('ODT','odtpow')
-	p1   = f('EVAP','p1')
-	t1   = f('EVAP','t1')
-	tau  = f('EVAP','tau')
-	beta = f('EVAP','beta')
-	
-	offset = f('EVAP','offset')
-	t2     = f('EVAP','t2')
-	tau2   = f('EVAP','tau2')
-	smoothdt   = f('EVAP','smoothdt')
-	
-	field_ramp_time = f('EVAP','fieldrampt0')
-	field_ramp_dt = f('EVAP','fieldrampdt')
-	field_ramp_start = f('FESHBACH','bias')
-	field_ramp_final = f('EVAP','fieldrampfinal')
-	
-	#~ field_ramp_time = min(image,field_ramp_time)
-	#~ field_ramp_dt = min(image-field_ramp_time,field_ramp_dt)
+def odt_evap_field(scale =1.0):
+	field_ramp_time = EVAP.fieldrampt0*scale
+	field_ramp_dt   = EVAP.fieldrampdt*scale
 	
 	ramp=[]
-	hashbase = '%.8f,%.8f,%.8f,%.8f,%.8f,%.8f' % (image,evap_ss,field_ramp_time,field_ramp_dt,field_ramp_start,field_ramp_final)
-	ramphash = seqconf.ramps_dir() +'Evap_field_'+ hashlib.md5( hashbase).hexdigest()
-	#Here, go ahead and save the trajectory path to the report
+	hashbase = ''
+	hashbase = hashbase + '%.8f' % EVAP.image
+	hashbase = hashbase + '%.8f' % EVAP.evapss
+	hashbase = hashbase + '%.8f' % field_ramp_time
+	hashbase = hashbase + '%.8f' % field_ramp_dt
+	hashbase = hashbase + '%.8f' % FB.bias
+	hashbase = hashbase + '%.8f' % EVAP.fieldrampfinal
+	hashbase = hashbase + '%.8f' % scale
+	hashbase = hashbase + wfm.rawcalibdat( 'bfield' ) 
+
+	
+	#---Here, go ahead and save the trajectory path to the report
+	ramphash = seqconf.ramps_dir() +'Evap_field_withscale'+ hashlib.md5( hashbase).hexdigest()
 	gen.save_to_report('EVAP','ramp_field', ramphash)
 
-	bfield = wfm.wave('bfield',field_ramp_start,evap_ss)
-
-
-	if not os.path.exists(ramphash) :
+	#---Setup field ramp
+	bfield = wfm.wave('bfield', FB.bias, EVAP.evapss)
+	if not os.path.exists(ramphash) or True:
 		bfield.extend(field_ramp_time)
-		bfield.linear(field_ramp_final,field_ramp_dt)
-		if((field_ramp_time+field_ramp_dt)<image):
-			bfield.extend(image)
+		bfield.linear(EVAP.fieldrampfinal,field_ramp_dt)
+		if((field_ramp_time+field_ramp_dt)<EVAP.image*scale):
+			bfield.extend(EVAP.image*scale)
 		else:
-			bfield.chop(image)
+			bfield.chop(EVAP.image*scale)
 		ramp = bfield.y
 		ramp.tofile(ramphash,sep=',',format="%.4f")
 	else:
 		print '\t...Recycling previously calculated Evap_field'
 		ramp = numpy.fromfile(ramphash,sep=',')
-		bfield.y=numpy.append(bfield.y,ramp)
+		bfield.y=ramp
 
-	odtpow = odt_wave('odtpow', p0, evap_ss)
-	#~ odtpow_test = odt_wave('NC0', p0, evap_ss)
-	#~ odtpow_test2 = odt_wave('NC1', p0, evap_ss)
-	#odtpow.Evap(p0, p1, t1, tau, beta, image)
-	#odtpow.Evap2(p0, p1, t1, tau, beta, offset, t2, tau2, image)
-	#odtpow.Evap3(p0, p1, t1, tau, beta, offset, t2, tau2, image)
-	
+	#---Setup ODT ramp
+	odtpow = odt_wave('odtpow', ODT.odtpow, EVAP.evapss)
 	### SELECT EVAP TRAJECTORY HERE###
-	finalcpow = odtpow.Evap7(p0, p1, t1, tau, beta, offset, t2, tau2,smoothdt,image)
-	#~ finalcpow2 = odtpow_test.Evap7(p0, p1, t1, tau, beta, offset, t2, tau2,smoothdt,image)
-	#~ finalcpow3 = odtpow_test2.Evap7(p0, p1, t1, tau, beta, offset, t2, tau2,smoothdt,image)
+	finalcpow = odtpow.Evap8(\
+							ODT.odtpow, \
+							EVAP.p1, \
+							EVAP.t1, 
+							EVAP.tau, \
+							EVAP.beta, \
+							EVAP.offset, \
+							EVAP.t2, \
+							EVAP.tau2, \
+							EVAP.smoothdt, \
+							EVAP.image, \
+							EVAP.scale \
+							)
+	#Here, go ahead and save the finalcpow to the report
+	gen.save_to_report('EVAP','finalcpow', finalcpow)
+	
+	#---Setup ipganalog ramp
+	ipganalog = ipg_wave('ipganalog', 10., EVAP.evapss)
+	if ODT.use_servo == 0:
+		ipganalog.extend( odtpow.dt() )
+	elif ODT.use_servo == 1:
+		ipganalog.follow( odtpow )
+
+	maxDT = odtpow.dt()
+	return bfield, odtpow, maxDT, finalcpow, ipganalog
+
+
+
+def odt_evap_patch():
+	odtpow = odt_wave('odtpow', p0, evap_ss)
+	### SELECT EVAP TRAJECTORY HERE###
+	finalcpow = odtpow.Evap6(\
+							EVAP.patch_cuttime, \
+							EVAP.patch_m, \
+							EVAP.patch_y, \
+							EVAP.patch_t0, \
+							EVAP.patch_kink1, \
+							EVAP.patch_kink2, \
+							EVAP.patch_m_t0, \
+							EVAP.patch_m_t0_2, \
+							EVAP.image)
 	
 	#Here, go ahead and save the finalcpow to the report
 	gen.save_to_report('EVAP','finalcpow', finalcpow)
 	
-	#ipganalog starts out at full power
-	ipganalog = ipg_wave('ipganalog', 10., evap_ss)
-	
-	if f('ODT','use_servo') == 0:
+	#---Setup ipganalog ramp
+	ipganalog = ipg_wave('ipganalog', 10., EVAP.evapss)
+	if ODT.use_servo == 0:
 		ipganalog.extend( odtpow.dt() )
-	elif f('ODT','use_servo') == 1:
+	elif ODT.use_servo == 1:
 		ipganalog.follow( odtpow )
-	#~ ipganalog.follow( odtpow )
 
-	#~ odtpow.Exponential(pow0,powf,evap_dt,tau)
-	#~ odtpow.linear( powf, evap_ss)
-	#~ odtpow.appendhold( evap_dt)
-
-	maxDT = odtpow.dt()
-		
-	return bfield, odtpow, maxDT, finalcpow, ipganalog#,odtpow_test,odtpow_test2
-
-def odt_evap_patch(image):
-	evap_ss = f('EVAP','evapss')
-	p0   = f('ODT','odtpow')
-	m   = f('EVAP','patch_m')
-	y1   = f('EVAP','patch_y')
-	t0  = f('EVAP','patch_t0')
-	cut_time = f('EVAP','patch_cuttime')
-	m_t0 = f('EVAP','patch_m_t0')
-	kink1= f('EVAP','patch_kink1')
-	m_t0_1 = f('EVAP','patch_m_t0')
-	kink2= f('EVAP','patch_kink2')
-	m_t0_2 = f('EVAP','patch_m_t0_2')
-	odtpow = odt_wave('odtpow', p0, evap_ss)
-	#odtpow.Evap(p0, p1, t1, tau, beta, image)
-	#odtpow.Evap2(p0, p1, t1, tau, beta, offset, t2, tau2, image)
-	#odtpow.Evap3(p0, p1, t1, tau, beta, offset, t2, tau2, image)
-	
-	### SELECT EVAP TRAJECTORY HERE###
-	finalcpow = odtpow.Evap6(cut_time,m,y1,t0,kink1,kink2,m_t0_1,m_t0_2,image)
-	
-	#Here, go ahead and save the finalcpow to the report
-	gen.save_to_report('EVAP','finalcpow', finalcpow)
-	
-	#ipganalog starts out at full power
-	ipganalog = ipg_wave('ipganalog', 10., evap_ss)
-	
-	if f('ODT','use_servo') == 0:
-		ipganalog.extend( odtpow.dt() )
-	elif f('ODT','use_servo') == 1:
-		ipganalog.follow( odtpow )
-	#~ ipganalog.follow( odtpow )
-
-	#~ odtpow.Exponential(pow0,powf,evap_dt,tau)
-	#~ odtpow.linear( powf, evap_ss)
-	#~ odtpow.appendhold( evap_dt)
-	
-	maxDT = odtpow.dt()
-	
+	maxDT = odtpow.dt()	
 	return odtpow, maxDT, finalcpow, ipganalog
 	
-def odt_lightshift_evap(image):
-	evap_ss = f('EVAP','evapss')
-
-	p0   = f('ODT','odtpow')
-	p1   = f('EVAP','p1')
-	t1   = f('EVAP','t1')
-	tau  = f('EVAP','tau')
-	beta = f('EVAP','beta')
 	
-	offset = f('EVAP','offset')
-	t2     = f('EVAP','t2')
-	tau2   = f('EVAP','tau2')
+	
+	
+def crossbeam_evap(s, toENDBFIELD):
+	# Add evaporation ramp to ODT, returns sequence right at the end of evaporation
+	buffer=10.0 #Time needed to re-latch the trigger for the AOUTS
+	if EVAP.free < buffer + toENDBFIELD :
+		print 'Need at list ' + str(buffer) + 'ms of free evap before evaporation can be triggered'
+		print 'Currently ramps end at %f , and free is %f' % (toENDBFIELD,EVAP.free)
+		exit(1)
+	s.wait(EVAP.free)
+	odtpow, ENDEVAP, cpowend, ipganalog = odt_evap()
+	
+	# Set LCR preset value in the begining of evap 1 is lattice 0 is dimple
+	lcr1  = lattice.lattice_wave('lcr1', EVAP.lcr_preset, EVAP.evapss)
+	lcr2  = lattice.lattice_wave('lcr2', EVAP.lcr_preset, EVAP.evapss)
+	lcr3  = lattice.lattice_wave('lcr3', EVAP.lcr_preset, EVAP.evapss)
+	lcr1.extend(ENDEVAP)
+	lcr2.extend(ENDEVAP)
+	lcr3.extend(ENDEVAP)
+	
+	s.analogwfm_add(EVAP.evapss,[odtpow,ipganalog,lcr1,lcr2,lcr3])
+	# ENDEVAP should be equal to image
+	s.wait(EVAP.image)
+	return s, cpowend
+	
+	
+def crossbeam_evap_into_lattice(s, toENDBFIELD):
+	# Add evaporation ramp to ODT, returns sequence right at the end of evaporation
+	buffer=10.0 #Time needed to re-latch the trigger for the AOUTS
+	if EVAP.free < buffer + toENDBFIELD :
+		print 'Need at list ' + str(buffer) + 'ms of free evap before evaporation can be triggered'
+		print 'Currently ramps end at %f , and free is %f' % (toENDBFIELD, EVAP.free)
+		exit(1)
+	s.wait(EVAP.free)
+	odtpow, ENDEVAP, cpowend, ipganalog = odt_evap()
+	# ENDEVAP should be equal to image
+	
+	# Set LCR preset value in the begining of evap 1 is lattice 0 is dimple
+	lcr1  = lattice.lattice_wave('lcr1', EVAP.lcr_preset, EVAP.evapss)
+	lcr2  = lattice.lattice_wave('lcr2', EVAP.lcr_preset, EVAP.evapss)
+	lcr3  = lattice.lattice_wave('lcr3', EVAP.lcr_preset, EVAP.evapss)
+	lcr1.extend(ENDEVAP)
+	lcr2.extend(ENDEVAP)
+	lcr3.extend(ENDEVAP)
+	
+	#---Ramp up IR and green beams
+	def rampup(ch, ss, END, load, delay, pow, dt):
+		w = wfm.wave(ch, 0., ss) 
+		w.appendhold( END - load)
+		w.appendhold( delay)
+		w.linear( pow, dt)
+		return w 
+	
+	ir1 = rampup('ir1pow', EVAP.evapss, ENDEVAP, IL.loadtime, IL.irdelay1, IL.irpow1, IL.irrampdt1)
+	ir2 = rampup('ir2pow', EVAP.evapss, ENDEVAP, IL.loadtime, IL.irdelay2, IL.irpow2, IL.irrampdt1)
+	ir3 = rampup('ir3pow', EVAP.evapss, ENDEVAP, IL.loadtime, IL.irdelay3, IL.irpow3, IL.irrampdt1)
+	
+	gr1 = rampup('greenpow1', EVAP.evapss, ENDEVAP, IL.loadtime, IL.grdelay1, IL.grpow1, IL.grrampdt1)
+	gr2 = rampup('greenpow2', EVAP.evapss, ENDEVAP, IL.loadtime, IL.grdelay2, IL.grpow2, IL.grrampdt1)
+	gr3 = rampup('greenpow3', EVAP.evapss, ENDEVAP, IL.loadtime, IL.grdelay3, IL.grpow3, IL.grrampdt1)
+
+	end = s.analogwfm_add(EVAP.evapss,[odtpow,ir1,ir2,ir3,gr1,gr2,gr3,lcr1,lcr2,lcr3])
+	s.wait(EVAP.image-IL.loadtime)
+	
+	#---Turn on IR lattice beams
+	def ttlon( s, delay, ch, bool ):
+		s.wait(delay)
+		s.digichg( ch, bool)
+		s.wait(-delay)
 		
-	odtpow2 = odt_wave('odtpow', p0, evap_ss)
-	#odtpow.Evap(p0, p1, t1, tau, beta, image)
-	#odtpow.Evap2(p0, p1, t1, tau, beta, offset, t2, tau2, image)
-	ficpow = odtpow2.Evap3(p0, p1, t1, tau, beta, offset, t2, tau2, image)
+	ttlon( s, IL.irdelay1, 'irttl1', IL.ir1)
+	ttlon( s, IL.irdelay2, 'irttl2', IL.ir2)
+	ttlon( s, IL.irdelay3, 'irttl3', IL.ir3)
+	ttlon( s, IL.grdelay1, 'grttl1', IL.gr1)
+	ttlon( s, IL.grdelay2, 'grttl2', IL.gr2)
+	ttlon( s, IL.grdelay3, 'grttl3', IL.gr3)
 	
-	uvdet = wfm.wave('uvdet', None , evap_ss, volt=3.744)
-	uvdet.linear( f('UVLS','uvdet'), 100 )
 	
-	maxDT = odtpow2.dt()
-	uvdet.extend(maxDT)
+	s.wait( IL.loadtime + end - EVAP.image)	
 	
-	return odtpow2, uvdet, maxDT
+	return s
 	
-def odt_lightshift(odtpow0):
-	ls_ss = f('UVLS','ls_ss')
+	
+def crossbeam_evap_field(s, toENDBFIELD):
+	# Add evaporation ramp to ODT, returns sequence right at the end of evaporation
+	buffer=10.0 #Time needed to re-latch the trigger for the AOUTS
+	if EVAP.free < buffer + toENDBFIELD :
+		print 'Need at list ' + str(buffer) + 'ms of free evap before evaporation can be triggered'
+		print 'Currently ramps end at %f , and free is %f' % (toENDBFIELD,EVAP.free)
+		exit(1)
+	s.wait(EVAP.free)
+	
+	bfield, odtpow, ENDEVAP, cpowend, ipganalog = odt_evap_field()
+	
+	# Set LCR preset value in the begining of evap 1 is lattice 0 is dimple
+	lcr1  = lattice.lattice_wave('lcr1', EVAP.lcr_preset, EVAP.evapss)
+	lcr2  = lattice.lattice_wave('lcr2', EVAP.lcr_preset, EVAP.evapss)
+	lcr3  = lattice.lattice_wave('lcr3', EVAP.lcr_preset, EVAP.evapss)
+	lcr1.extend(ENDEVAP)
+	lcr2.extend(ENDEVAP)
+	lcr3.extend(ENDEVAP)
+	
+	s.analogwfm_add(EVAP.evapss,[odtpow,ipganalog, bfield,lcr1,lcr2,lcr3])
+	
+	#Add quick jump to help go to final evaporation field
+	if ( EVAP.use_field_ramp == 1 and  EVAP.image > EVAP.fieldrampt0):
+		s.wait( EVAP.fieldrampt0 )
+		s.wait(-25.0)
+		s.digichg('hfquick',1)
+		s.digichg('quick',1)
+		s.wait(75.0)
+		s.digichg('hfquick',0)
+		s.digichg('quick',0)
+		s.wait(-50.0)
+		s.wait(-EVAP.fieldrampt0)
+	
+	s.wait(EVAP.image)
+	return s, cpowend
+	
 
-	odtpow  = odt_wave('odtpow',  None, ls_ss, volt=odtpow0)
-	bfield  = wfm.wave('bfield',  f('FESHBACH','bias'), ls_ss)
-	uv1freq = wfm.wave('uv1freq', None , ls_ss, volt=7.600)
-	uvpow2   = wfm.wave('uvpow2',   f('UV','uvpow2'), ls_ss)
+def crossbeam_evap_field_into_lattice(s, toENDBFIELD):
+	# Add evaporation ramp to ODT, returns sequence right at the end of evaporation
+	buffer=10.0 #Time needed to re-latch the trigger for the AOUTS
+	if EVAP.free < buffer + toENDBFIELD :
+		print 'Need at list ' + str(buffer) + 'ms of free evap before evaporation can be triggered'
+		print 'Currently ramps end at %f , and free is %f' % (toENDBFIELD,EVAP.free)
+		exit(1)
+	s.wait(EVAP.free)
+	bfield, odtpow, ENDEVAP, cpowend, ipganalog = odt_evap_field()
+	
+	#---Set LCR preset value in the begining of evap 1 is lattice 0 is dimple
+	lcr1  = lattice.lattice_wave('lcr1', EVAP.lcr_preset, EVAP.evapss)
+	lcr2  = lattice.lattice_wave('lcr2', EVAP.lcr_preset, EVAP.evapss)
+	lcr3  = lattice.lattice_wave('lcr3', EVAP.lcr_preset, EVAP.evapss)
+	lcr1.extend(ENDEVAP)
+	lcr2.extend(ENDEVAP)
+	lcr3.extend(ENDEVAP)
+	
+	#---Ramp up IR, GR beams
+	def rampup( ch, pow ):
+		w = lattice.lattice_wave(ch, 0., EVAP.evapss)
+		w.appendhold( EVAP.latticet0 )
+		w.tanhRise( pow, EVAP.latticedt, EVAP.tanhtau, EVAP.tanhshift )
+	ir1 = rampup('ir1pow', EVAP.irpow)
+	ir2 = rampup('ir2pow', EVAP.irpow)
+	ir3 = rampup('ir3pow', EVAP.irpow)
+	gr1 = rampup('greenpow1', EVAP.grpow)
+	gr2 = rampup('greenpow2', EVAP.grpow)
+	gr3 = rampup('greenpow3', EVAP.grpow)
+	
+	#---Turn on TTLs
+	s.wait(EVAP.latticet0)
+	s.digichg( 'irttl1', EVAP.irttl1)
+	s.digichg( 'irttl2', EVAP.irttl2)
+	s.digichg( 'irttl3', EVAP.irttl3)
+	s.digichg( 'greenttl1', EVAP.irttl1)
+	s.digichg( 'greenttl2', EVAP.irttl2)
+	s.digichg( 'greenttl3', EVAP.irttl3)
+	s.wait(-EVAP.latticet0)
+	
+	
+	s.analogwfm_add(EVAP.evapss,[odtpow,ipganalog, bfield,ir1,ir2,ir3,gr1,gr2,gr3,lcr1,lcr2,lcr3])
+	
+	#Add quick jump to help go to final evaporation field
+	if ( EVAP.use_field_ramp == 1 and  EVAP.image > EVAP.fieldrampt0):
+		s.wait( EVAP.fieldrampt0 )
+		s.wait(-25.0)
+		s.digichg('hfquick',1)
+		s.digichg('quick',1)
+		s.wait(75.0)
+		s.digichg('hfquick',0)
+		s.digichg('quick',0)
+		s.wait(-50.0)
+		s.wait(-EVAP.fieldrampt0)
+	
+	s.wait(EVAP.image)
+	
+	return s, cpowend
 
-
-	uv1freq.linear( None, 10.0, volt=f('UVLS','uvfreq'))
-	uvpow2.linear(  f('UVLS','lspow2'), 10.0)
-		
-	odtpow.linear( f('UVLS','cpow'), f('UVLS','cdt') )
-	odtpow.appendhold( f('UVLS','waitdt'))
-	bfield.extend(odtpow.dt())
 	
-	bfield.linear( f('UVLS','bpulse'), f('UVLS','bdt') )
-	bfield.appendhold( f('UVLS','waitdt2'))
-	bfield.appendhold( f('UVLS','waitdt3'))
-	ENDC=bfield.dt()
-
-	#~ bfield.linear( f('UVLS','bpulse') , f('UVLS','bdt') )
-	#~ bfield.appendhold(f('UVLS','waitdt'))
-	#~ odtpow.extend(bfield.dt())
-	
-	#~ odtpow.linear( f('UVLS','cpow'), f('UVLS','cdt') )
-	#~ odtpow.appendhold( f('UVLS', 'waitdt2'))
-	#~ ENDC = odtpow.dt()
-	
-	#~ bfield.extend( odtpow.dt() )
-	
-	odtpow.extend( bfield.dt() )
-	bfield.appendhold( f('UVLS','dtpulse')) 
-	
-
-	bfield.linear( f('ZEROCROSS','zcbias') , f('UVLS','hframpdt'))
-	#Change f('FESHBACH','bias') -> f('ZEROCROSS','zcbias') 110911 by Ernie
-	#bfield.linear( 0.0, f('UVLS','hframpdt'))
-	
-	totalDT = bfield.dt()
-	
-	odtpow.extend(totalDT)
-	uv1freq.extend(totalDT)
-	uvpow2.extend(totalDT)
-	
-	return odtpow, bfield, uv1freq, uvpow2, ENDC
 	
 def odt_trapfreq(odtpow0):
 	mod_ss = f('TRAPFREQ','mod_ss')
@@ -536,20 +436,40 @@ class ipg_wave(wfm.wave):
 #### LOWER LEVEL CODE FOR ODT WAVEFORMS ###
 ###########################################
 
-if f('ODT','use_servo') == 0:
-	b=float(report['ODTCALIB']['b_nonservo'])
-	m1=float(report['ODTCALIB']['m1_nonservo'])
-	m2=float(report['ODTCALIB']['m2_nonservo'])
-	m3=float(report['ODTCALIB']['m3_nonservo'])
-	kink1=float(report['ODTCALIB']['kink1_nonservo'])
-	kink2=float(report['ODTCALIB']['kink2_nonservo'])
-elif f('ODT','use_servo') == 1:
+try:
+	if f('ODT','use_servo') == 0:
+		b=float(report['ODTCALIB']['b_nonservo'])
+		m1=float(report['ODTCALIB']['m1_nonservo'])
+		m2=float(report['ODTCALIB']['m2_nonservo'])
+		m3=float(report['ODTCALIB']['m3_nonservo'])
+		kink1=float(report['ODTCALIB']['kink1_nonservo'])
+		kink2=float(report['ODTCALIB']['kink2_nonservo'])
+	elif f('ODT','use_servo') == 1:
+		b=float(report['ODTCALIB']['b'])
+		m1=float(report['ODTCALIB']['m1'])
+		m2=float(report['ODTCALIB']['m2'])
+		m3=0
+		kink1=float(report['ODTCALIB']['kink'])
+		kink2=11
+except:
+	print
+	print "Could not setup odtpow calibration parameters."
+	print "Possibly because the report is not loaded."
+	print "If you are running this module as standalone"
+	print "the odtpow calibration params will be loaded"
+	print "from params.INI"
+	print 
+	
+	from configobj import ConfigObj
+	report=ConfigObj( 'L:/software/apparatus3/log/params/params.INI' )
+	print report
 	b=float(report['ODTCALIB']['b'])
 	m1=float(report['ODTCALIB']['m1'])
 	m2=float(report['ODTCALIB']['m2'])
-	m3=0
+	m3=0.
 	kink1=float(report['ODTCALIB']['kink'])
 	kink2=11
+	
 
 
 it=0
@@ -585,10 +505,27 @@ if __name__ == '''__main__''':
 	#These test that the OdtpowConvert functions are working properly
 	print b+m1*kink1+m2*(kink2-kink1)
 	print b+m1*kink1
+	print "OdtpowConvert( 0.0 ) = %f " % OdtpowConvert(0.0)
 	print "OdtpowConvert( 10.0 ) = %f " % OdtpowConvert(10.0)
+	print "OdtpowConvert( 10.2 ) = %f " % OdtpowConvert(10.2)
+	print "OdtpowConvert( 11.0 ) = %f " % OdtpowConvert(11.0)
+
 	print "OdtpowConvert( kink1 ) = %f " % OdtpowConvert(kink1)
 	print "OdtpowConvert( kink2 ) = %f " % OdtpowConvert(kink2)
 	print "OdtpowConvertPhys( 7.652611) = %f " % OdtpowConvertPhys(7.652611)
+	
+	#Here a table file is saved for voltage to odtpow conversion
+	phys = numpy.linspace(0,11.,1101)
+	vecfunc = numpy.vectorize(OdtpowConvert)
+	volt = vecfunc(phys)
+	dat=numpy.transpose( numpy.vstack( (volt,phys)))
+	dat=numpy.vstack( (numpy.array([0.,0.]), dat) )
+		
+	with open(os.path.join(os.getcwd(),'odtfcpow.dat'), 'wb') as f:
+		f.write(b'#volt\tfcpow\n')
+		numpy.savetxt(f, dat)
+	
+	
 
 
 class odt_wave(wfm.wave):
@@ -624,96 +561,13 @@ class odt_wave(wfm.wave):
 		return 
 
 
-	def Evap(self, p0, p1, t1, tau, beta, duration):
-		"""Evaporation ramp v1"""
-		if duration <=0:
-			return
-		else:
-			N=int(round(duration/self.ss))
-			print '...Evap nsteps = ' + str(N)
-			ramp=[]
-			
-			ramphash = seqconf.ramps_dir() + 'Evap_' \
-					   + hashlib.md5(str(self.name)+str(self.ss)+str(duration)+str(p0)+str(p1)+str(t1)+str(tau)+str(beta)).hexdigest()
-			if not os.path.exists(ramphash):
-				print '...Making new Evap ramp'
-				for xi in range(N):
-					t = (xi+1)*self.ss
-					phys = evap.v1(t,p0,p1,t1,tau,beta)
-					volt = cnv(self.name,phys)
-					ramp = numpy.append( ramp, [ volt])
-				ramp.tofile(ramphash,sep=',',format="%.4f")
-			else:
-				print '...Recycling previously calculated Evap ramp'
-				ramp = numpy.fromfile(ramphash,sep=',')
 
-			self.y=numpy.append(self.y,ramp)
-		return
-		
-		
-	def Evap2(self, p0, p1, t1, tau, beta, offset, t2, tau2, duration):
-		"""Evaporation ramp v2"""
-		if duration <=0:
-			return
-		else:
-			N=int(round(duration/self.ss))
-			print '...Evap nsteps = ' + str(N)
-			ramp=[]
-			ramphash = seqconf.ramps_dir() + 'Evap2_' \
-					   + hashlib.md5(str(self.name)+str(self.ss)+str(duration)+str(p0)+str(p1)+str(t1)+str(tau)+str(beta)\
-					                  + str(offset)+str(t2)+str(tau2)).hexdigest()
-			if not os.path.exists(ramphash):
-				print '...Making new Evap2 ramp'
-				for xi in range(N):
-					t = (xi+1)*self.ss
-					phys = evap.v2(t,p0,p1,t1,tau,beta, offset,t2,tau2)
-					volt = cnv(self.name,phys)
-					ramp = numpy.append( ramp, [ volt])
-				ramp.tofile(ramphash,sep=',',format="%.4f")
-			else:
-				print '...Recycling previously calculated Evap2 ramp'
-				ramp = numpy.fromfile(ramphash,sep=',')
 
-			self.y=numpy.append(self.y,ramp)
-		return
-		
-
-	def Evap3(self, p0, p1, t1, tau, beta, offset, t2, tau2, duration):
-		"""Evaporation ramp v2"""
-		if duration <=0:
-			return
-		else:
-			N=int(round(duration/self.ss))
-			print '...Evap nsteps = ' + str(N)
-			ramp=[]
-			hashbase = '%.8f,%.8f,%.8f,%.8f,%s,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f ' \
-			           % ( b,m1,m2,kink, self.name, self.ss, duration, p0, p1, t1, tau, beta, offset, t2, tau2)
-			
-			ramphash = seqconf.ramps_dir() +'Evap3_' \
-						+ hashlib.md5( hashbase).hexdigest()
-			if not os.path.exists(ramphash):
-				print '...Making new Evap3 ramp'
-				for xi in range(N):
-					t = (xi+1)*self.ss
-					phys = evap.v2(t,p0,p1,t1,tau,beta, offset,t2,tau2)                    
-					volt = OdtpowConvert(phys)
-					ramp = numpy.append( ramp, [ volt])
-				ramp.tofile(ramphash,sep=',',format="%.4f")
-			else:
-				print '...Recycling previously calculated Evap3 ramp'
-				ramp = numpy.fromfile(ramphash,sep=',')
-
-			self.y=numpy.append(self.y,ramp)
-
-		#This returns the last value of the ramp
-		return evap.v2(N*self.ss,p0,p1,t1,tau,beta,offset,t2,tau2)
-		
-
-	def Evap4(self, p0, p1, t1, tau, beta, offset, t2, tau2, duration):
-		"""Evaporation ramp v4"""
+	def Evap8(self, p0, p1, t1, tau, beta, offset, t2, tau2, smoothdt, duration,scale = 1.0):
+		"""Evaporation ramp v8 same as v7 with scale"""
 		if True:
 			print ""
-			print "----- EVAPORATION RAMP Version 4-----"
+			print "----- EVAPORATION RAMP Version 8-----"
 			print "\tp0       = %.4f" % p0
 			print "\tp1       = %.4f" % p1
 			print "\tt1       = %.4f" % t1
@@ -727,179 +581,59 @@ class odt_wave(wfm.wave):
 		if duration <=0:
 			return
 		else:
-			N=int(round(duration/self.ss))
+			N=int(round(duration*scale/self.ss))
 			print '\t...Evap nsteps = ' + str(N)
-			ramp_phys=[]
-			ramp=[]
-			hashbase = '%.8f,%.8f,%.8f,%.8f,%.8f,%.8f,%s,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f ' \
-			           % ( b,m1,m2,m3,kink1,kink2, self.name, self.ss, duration, p0, p1, t1, tau, beta, offset, t2, tau2)
-
-			ramphash = seqconf.ramps_dir() +'Evap4_' \
-						+ hashlib.md5( hashbase).hexdigest()
-			#Here, go ahead and save the trajectory path to the report
-			gen.save_to_report('EVAP','ramp', ramphash+'_phys')
-			if True:#not os.path.exists(ramphash):
-				print '\t...Making new Evap4 ramp'
-				for xi in range(N):
-					t = (xi+1)*self.ss
-					phys = evap.v2(t,p0,p1,t1,tau,beta, offset,t2,tau2)                    
-					volt = OdtpowConvert(phys)
-					ramp_phys = numpy.append( ramp_phys, [ phys])
-					ramp = numpy.append( ramp, [ volt])
-				ramp_phys.tofile(ramphash+'_phys',sep='\n',format="%.4f")
-				ramp.tofile(ramphash,sep=',',format="%.4f")
-			else:
-				print '\t...Recycling previously calculated Evap4 ramp'
-				ramp = numpy.fromfile(ramphash,sep=',')
-
-			self.y=numpy.append(self.y,ramp)
-
-		#This returns the last value of the ramp
-		print ""
-		return evap.v2(N*self.ss,p0,p1,t1,tau,beta,offset,t2,tau2)
-
-	def Evap5(self, p0, p1, t1, tau, beta, offset, t2, tau2, duration):
-		"""Evaporation ramp v5"""
-		if True:
-			print ""
-			print "----- EVAPORATION RAMP Version 5-----"
-			print "\tp0       = %.4f" % p0
-			print "\tp1       = %.4f" % p1
-			print "\tt1       = %.4f" % t1
-			print "\ttau      = %.4f" % tau
-			print "\tbeta     = %.4f" % beta
-			print "\toffset   = %.4f" % offset
-			print "\tt2       = %.4f" % t2
-			print "\ttau2     = %.4f" % tau2
-			print "\tduration = %.4f" % duration
+			ramp_phys=numpy.array([])
+			ramp=numpy.array([])
 			
-		if duration <=0:
-			return
-		else:
-			N=int(round(duration/self.ss))
-			print '\t...Evap nsteps = ' + str(N)
-			ramp_phys=[]
-			ramp=[]
-			hashbase = '%.8f,%.8f,%.8f,%.8f,%.8f,%.8f,%s,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f ' \
-			           % ( b,m1,m2,m3,kink1,kink2, self.name, self.ss, duration, p0, p1, t1, tau, beta, offset, t2, tau2)
+			hashbase = ''
+			hashbase = hashbase + '%.8f' % b
+			hashbase = hashbase + '%.8f' % m1
+			hashbase = hashbase + '%.8f' % m2
+			hashbase = hashbase + '%.8f' % m3
+			hashbase = hashbase + '%.8f' % kink1
+			hashbase = hashbase + '%.8f' % kink2
+			hashbase = hashbase + '%.s' % self.name
+			hashbase = hashbase + '%.8f' % self.ss
+			hashbase = hashbase + '%.8f' % duration
+			hashbase = hashbase + '%.8f' % p0
+			hashbase = hashbase + '%.8f' % p1
+			hashbase = hashbase + '%.8f' % t1
+			hashbase = hashbase + '%.8f' % tau
+			hashbase = hashbase + '%.8f' % beta
+			hashbase = hashbase + '%.8f' % offset
+			hashbase = hashbase + '%.8f' % t2
+			hashbase = hashbase + '%.8f' % tau2
+			hashbase = hashbase + '%.8f' % smoothdt
+			hashbase = hashbase + '%.8f' % scale
 
-			ramphash = seqconf.ramps_dir() +'Evap5__' \
+			ramphash = seqconf.ramps_dir() +'Evap8_' \
 						+ hashlib.md5( hashbase).hexdigest()
+						
 			#Here, go ahead and save the trajectory path to the report
 			gen.save_to_report('EVAP','ramp', ramphash+'_phys')
-			if not os.path.exists(ramphash):
-				print '\t...Making new Evap5 ramp'
-				for xi in range(N):
-					t = (xi+1)*self.ss
-					phys = evap.v2(t,p0,p1,t1,tau,beta, offset,t2,tau2) if (t<t2) else  evap.v2(t2,p0,p1,t1,tau,beta, offset,t2,tau2)                  
-					volt = OdtpowConvert(phys)
-					ramp_phys = numpy.append( ramp_phys, [ phys])
-					ramp = numpy.append( ramp, [ volt])
-				ramp_phys.tofile(ramphash+'_phys',sep='\n',format="%.4f")
-				ramp.tofile(ramphash,sep=',',format="%.4f")
-			else:
-				print '\t...Recycling previously calculated Evap4 ramp'
-				ramp = numpy.fromfile(ramphash,sep=',')
-
-			self.y=numpy.append(self.y,ramp)
-
-		#This returns the last value of the ramp
-		print ""
-		return evap.v2(N*self.ss,p0,p1,t1,tau,beta,offset,t2,tau2)
-		
-	def Evap6(self,cut_time,m,y,t0,kink1,kink2,m_t0_1,m_t0_2,duration):
-		"""Evaporation ramp v6"""
-		if True:
-			print ""
-			print "----- EVAPORATION RAMP Version 6-----"
-			print "\tm       = %.4f" % m
-			print "\ty       = %.4f" % y
-			print "\tt0      = %.4f" % t0
-
 			
-		if duration <=0:
-			return
-		else:
-			N=int(round(duration/self.ss))
-			print '\t...Evap nsteps = ' + str(N)
-			ramp_phys=[]
-			ramp=[]
-			hashbase = '%.8f,%.8f,%.8f,%.8f,%.8f,%.8f,%s,%.3f,%.3f,%.3f,%.3f,%.3f ' \
-			           % ( b,m1,m2,m3,kink1,kink2, self.name, self.ss, duration, m,y,t0)
-
-			ramphash = seqconf.ramps_dir() +'Evap6_1560' \
-						+ hashlib.md5( hashbase).hexdigest()
-			#Here, go ahead and save the trajectory path to the report
-			gen.save_to_report('EVAP','ramp', ramphash+'_phys')
-			#if not os.path.exists(ramphash):
-			if True:
-				print '\t...Making new Evap6 ramp'
+			if not os.path.exists(ramphash) or True:
+				print '\t...Making new Evap8 ramp'
 				for xi in range(N):
-					t = (xi+1)*self.ss
-					phys = evap.v5(cut_time,m,y,t0,kink1,kink2,m_t0_1,m_t0_2,t)                    
-					volt = OdtpowConvert(phys)
-					ramp_phys = numpy.append( ramp_phys, [ phys])
-					ramp = numpy.append( ramp, [ volt])
-				ramp_phys.tofile(ramphash+'_phys',sep='\n',format="%.4f")
-				ramp.tofile(ramphash,sep=',',format="%.4f")
-			else:
-				print '\t...Recycling previously calculated Evap6 ramp'
-				ramp = numpy.fromfile(ramphash,sep=',')
-
-			self.y=numpy.append(self.y,ramp)
-
-		#This returns the last value of the ramp
-		print ""
-		return evap.v5(cut_time,m,y,t0,kink1,kink2,m_t0_1,m_t0_2,N*self.ss) 
-		
-	def Evap7(self, p0, p1, t1, tau, beta, offset, t2, tau2, smoothdt, duration):
-		"""Evaporation ramp v7 same as v4 except with smooth kink"""
-		if True:
-			print ""
-			print "----- EVAPORATION RAMP Version 7-----"
-			print "\tp0       = %.4f" % p0
-			print "\tp1       = %.4f" % p1
-			print "\tt1       = %.4f" % t1
-			print "\ttau      = %.4f" % tau
-			print "\tbeta     = %.4f" % beta
-			print "\toffset   = %.4f" % offset
-			print "\tt2       = %.4f" % t2
-			print "\ttau2     = %.4f" % tau2
-			print "\tduration = %.4f" % duration
-			
-		if duration <=0:
-			return
-		else:
-			N=int(round(duration/self.ss))
-			print '\t...Evap nsteps = ' + str(N)
-			ramp_phys=[]
-			ramp=[]
-			hashbase = '%.8f,%.8f,%.8f,%.8f,%.8f,%.8f,%s,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f ' \
-			           % ( b,m1,m2,m3,kink1,kink2, self.name, self.ss, duration, p0, p1, t1, tau, beta, offset, t2, tau2,smoothdt)
-
-			ramphash = seqconf.ramps_dir() +'Evap7_' \
-						+ hashlib.md5( hashbase).hexdigest()
-			#Here, go ahead and save the trajectory path to the report
-			gen.save_to_report('EVAP','ramp', ramphash+'_phys')
-			if not os.path.exists(ramphash):
-				print '\t...Making new Evap7 ramp'
-				for xi in range(N):
-					t = (xi+1)*self.ss
+					t = (xi+1)*self.ss/scale
 					phys = evap.v6(t,p0,p1,t1,tau,beta, offset,t2,tau2,smoothdt)                    
 					volt = OdtpowConvert(phys)
+					
 					ramp_phys = numpy.append( ramp_phys, [ phys])
-					ramp = numpy.append( ramp, [ volt])
+					ramp = numpy.append( ramp, numpy.around([ volt],decimals=4))
 				ramp_phys.tofile(ramphash+'_phys',sep='\n',format="%.4f")
 				ramp.tofile(ramphash,sep=',',format="%.4f")
+			
 			else:
-				print '\t...Recycling previously calculated Evap7 ramp'
+				print '\t...Recycling previously calculated Evap8 ramp'
 				ramp = numpy.fromfile(ramphash,sep=',')
 
 			self.y=numpy.append(self.y,ramp)
 
 		#This returns the last value of the ramp
 		print ""
-		return evap.v6(N*self.ss,p0,p1,t1,tau,beta,offset,t2,tau2,smoothdt)
+		return evap.v6(N*self.ss/scale,p0,p1,t1,tau,beta,offset,t2,tau2,smoothdt)
 		
 	def SineMod(self, p0, dt, freq, depth):
 		"""Sine wave modulation on channel"""

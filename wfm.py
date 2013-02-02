@@ -1,8 +1,12 @@
-import os, seqconf, gen, math, numpy, hashlib, time
+import os, sys, seqconf, gen, math, numpy, hashlib, time
 
 from convert import cnv
 
 report=gen.getreport()
+
+def rawcalibdat(ch):
+    with open( os.path.join([path for path in sys.path if 'convert' in path][0], os.path.join('data',ch+'.dat')) ) as f:
+        return f.read()
 
 
 class wave:
@@ -33,6 +37,9 @@ class wave:
 		return "%d" % self.idnum
 		
 	def fileoutput(self,filename):
+		#print "fileoutput length = %d"  % (self.y.size)
+		#print "fileoutput last value %s = %.8f" % (self.name, self.y[-1])
+		
 		self.y.tofile(filename,sep=',',format="%.4f")
 		
 	def __cmp__(self,other):
@@ -252,25 +259,61 @@ class wave:
 		"""Adds linear ramp to waveform, starts at current last 
 			value and goes to 'vf' in 'dt' 
 			CAREFUL: This is linear in voltage, not in phys"""
-		if 'ir' in self.name  and 'pow' in self.name:
-			print "%s LINEAR: Conversion flag = %d, vf_in=%f" % (self.name, volt,vf)
+		#~ if 'ir' in self.name  and 'pow' in self.name:
+			#~ print "%s LINEAR: Conversion flag = %d, vf_in=%f" % (self.name, volt,vf)
 			
-		if volt >= 0 and volt <= 10.0:
+		if volt >= -10.0 and volt <= 10.0:
 			vf=volt
 		elif volt == -11:
 			vf=cnv(self.name,vf)
 			
-		if 'ir' in self.name  and 'pow' in self.name:
-			print "%s  LINEAR: Conversion flag = %d, vf_out=%f" % (self.name, volt,vf)
+		#~ if 'ir' in self.name  and 'pow' in self.name:
+			#~ print "%s  LINEAR: Conversion flag = %d, vf_out=%f" % (self.name, volt,vf)
 			
-		v0=self.last()
+		v0 = round(self.last(),4)
 		if dt == 0.0:
 			self.y[ self.y.size -1] = vf
 			return
 		else:
 			N = int(math.floor(dt/self.ss))
 			for i in range(N):
-				self.y=numpy.append(self.y, [v0 + (vf-v0)*(i+1)/N])
+				self.y=numpy.append(self.y, [round(v0 + (vf-v0)*(i+1)/N,4)])
+		return
+		
+	def linear_phys(self,vf,dt):
+		"""Adds linear ramp to waveform, starts at current last 
+			value and goes to 'vf' in 'dt'"""
+			
+		v0=cnv(self.name+"Phys",self.last())
+		
+		if dt == 0.0:
+			self.y[ self.y.size -1] = cnv(self.name,vf)
+			return
+			
+		N = int(math.floor(dt/self.ss))
+
+		hashbase = ''
+		hashbase = hashbase + self.name
+		hashbase = hashbase + '%.8f' % vf
+		hashbase = hashbase + '%.8f' % v0
+		hashbase = hashbase + '%.8f' % N
+		hashbase = hashbase + '%.8f' % dt
+		hashbase = hashbase + wfm.rawcalibdat( self.name ) 
+		
+		ramphash = seqconf.ramps_dir() + 'linearPhys_' \
+			           + hashlib.md5( hashbase ).hexdigest()
+	
+		if not os.path.exists(ramphash):
+				print '...Making new linearPhys ramp for ' + self.name
+				
+				ramp= numpy.array([cnv(self.name,v0 + 1.0*(vf-v0)*(i+1)/N) for i in range(N)])
+				ramp.tofile(ramphash,sep=',',format="%.4f")
+		else:
+				print '...Recycling previously calculated linearPhys ramp for '  + self.name
+				ramp =  numpy.fromfile(ramphash,sep=',')	
+
+		self.y=numpy.append(self.y, ramp)
+		
 		return
 
 	def insertlin_cnv(self,vf,dt,start):

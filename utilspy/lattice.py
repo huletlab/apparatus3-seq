@@ -28,7 +28,7 @@ class lattice_wave(wfm.wave):
 			ramphash = seqconf.ramps_dir() + 'tanhRise_' \
 			           + hashlib.md5(str(self.name)+str(vf)+str(v0)+str(N)+str(dt)+str(tau)+str(shift)).hexdigest()
 			if not os.path.exists(ramphash):
-				print '...Making new tanhRise ramp'
+				print '...Making new tanhRise ramp for ' + self.name
 				x=numpy.arange(dt/N,dt,dt/N)
 				tau = tau*dt
 				shift = dt/2. + shift*dt/2.
@@ -36,7 +36,7 @@ class lattice_wave(wfm.wave):
 				                   / ( (1+numpy.tanh((dt-shift)/tau)) - (1+numpy.tanh((-shift)/tau)) )
 				ramp.tofile(ramphash,sep=',',format="%.4f")
 			else:
-				print '...Recycling previously calculated tanhRise ramp'
+				print '...Recycling previously calculated tanhRise ramp for ' + self.name
 				ramp =  numpy.fromfile(ramphash,sep=',')		
 			self.y=numpy.append(self.y, ramp)
 		return		

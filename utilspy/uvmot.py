@@ -10,6 +10,9 @@ def f(sec,key):
 	global report
 	return float(report[sec][key])
 
+#GET SECTION CONTENTS
+uvsec  = gen.getsection('UV')
+
 def uvRamps(motpow, bfield, ENDCNC):
 	ss=f('CNC','cncstepsize')
 	
@@ -31,25 +34,38 @@ def uvRamps(motpow, bfield, ENDCNC):
 	dtload = f('UV','dtload_bfield')
 	dtcnc = f('UV','dtcnc_bfield')
 	uvhold = f('UV','uvhold')
-	bfield.linear(  f('UV','uvbfield'), uvdt)
-	bfield.appendhold(dtload)
-	bfield.linear( f('UV','uvbfieldf'), dtcnc)
+	
+	#OBSOLETE
+	#bfield.linear(  f('UV','uvbfield'), uvdt)
+	#bfield.appendhold(dtload)
+	#bfield.linear( f('UV','uvbfieldf'), dtcnc)
+	
+	bfield.linear(  uvsec.uvbfield, uvsec.dt)
+	bfield.appendhold( uvsec.dtload_bfield)
+	bfield.linear(  uvsec.uvbfieldf, uvsec.dtcnc_bfield) 
+	
+
+	#OBSOLETE
 	#bfield.appendhold(uvhold)	
 	
 	ENDUVMOT = max( motpow.dt(), bfield.dt() )
 	
 	#---UVPOW ramps
-	dtload_uvpow = f('UV','dtload_uvpow')
-	dtcnc_uvpow = f('UV','dtcnc_uvpow')
+	
+	#OBSOLETE
+	#dtload_uvpow = f('UV','dtload_uvpow')
+	#dtcnc_uvpow = f('UV','dtcnc_uvpow')
+	
+	
 	#
 	uvpow= wfm.wave('uvpow', f('UV','uvpow'),ss)
 	uvpow2= wfm.wave('uvpow2',f('UV','uvpow2'),ss)
 	#
-	uvpow.extend(ENDCNC+uvdt+dtload)
-	uvpow2.extend(ENDCNC+uvdt+dtload)
+	uvpow.extend( ENDCNC + uvsec.dt + uvsec.dtload_uvpow)
+	uvpow2.extend(ENDCNC + uvsec.dt + uvsec.dtload_uvpow)
 	#
-	uvpow.linear( f('UV','uvpowf'), dtcnc_uvpow)
-	uvpow2.linear( f('UV','uvpow2f') , dtcnc_uvpow)	
+	uvpow.linear( f('UV','uvpowf'), uvsec.dtcnc_uvpow)
+	uvpow2.linear( f('UV','uvpow2f') , uvsec.dtcnc_uvpow)	
 	
 	#---ENDUVMOT is defined as the point where the longest of bfield 
 	#---or uvpow ramps ends

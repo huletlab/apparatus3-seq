@@ -24,21 +24,27 @@ import seq, wfm, gen, cnc, odt, andor, highfield_uvmot
 report=gen.getreport()
 
 
-#PARAMETERS
-stepsize = float(report['SEQ']['stepsize'])
-tof      = float(report['ANDOR']['tof'])
-exp      = float(report['ANDOR']['exp'])
-noatoms  = float(report['ANDOR']['noatoms'])
+#---GET SECTION CONTENTS
+SEQ   = gen.getsection('SEQ')
+EVAP  = gen.getsection('EVAP')
+ANDOR = gen.getsection('ANDOR')
+ODT   = gen.getsection('ODT')
+FB    = gen.getsection('FESHBACH')
+ZC    = gen.getsection('ZEROCROSS')
+LI     = gen.getsection('LATTICEINT')
 
-#GET SECTION CONTENTS
-latticeint  = gen.getsection('LATTICEINT')
-
-#SEQUENCE
-s=seq.sequence(stepsize)
+#---SEQUENCE
+s=seq.sequence(SEQ.stepsize)
 s=gen.initial(s)
 
-
+#Get hfimg ready
 s.digichg('hfimg',1)
+
+#If using analoghfimg get it ready
+if ANDOR.analoghfimg == 1:
+	s.digichg('analogimgttl',1)
+
+
 s.digichg('odt7595',0)
 
 
@@ -47,105 +53,88 @@ s, toENDBFIELD = highfield_uvmot.go_to_highfield(s)
 
 
 # Evaporate in cross beam trap
-s, cpowend = odt.crossbeam_evap(s, toENDBFIELD)
+if EVAP.lattice == 1:
+    s, cpowend = odt.crossbeam_evap_field_into_lattice(s, toENDBFIELD)
+    ir_p0 = EVAP.irpow
+    gr_p0 = EVAP.grpow
+else:
+    s, cpowend = odt.crossbeam_evap_field(s, toENDBFIELD)
+    ir_p0 =0.
+    gr_p0 =0.
+
 
 
 buffer=25.0 #Time needed to re-latch the trigger for the AOUTS
 s.wait(buffer)
 
-# Ramp up IR and green beams
-irramp1 = float(report['LATTICEINT']['irrampdt1'])
-irramp2 = float(report['LATTICEINT']['irrampdt2'])
-irramp3 = float(report['LATTICEINT']['irrampdt3'])
-irdelay1 = float(report['LATTICEINT']['irdelay1'])
-irdelay2 = float(report['LATTICEINT']['irdelay2'])
-irdelay3 = float(report['LATTICEINT']['irdelay3'])
 
+# Ramp up IR and GR beams
 ir_ss = 0.5
-ir1  = wfm.wave('ir1pow', 0., ir_ss)
-ir2  = wfm.wave('ir2pow', 0., ir_ss)
-ir3  = wfm.wave('ir3pow', 0., ir_ss)
-
-ir1.appendhold(irdelay1)
-ir2.appendhold(irdelay2)
-ir3.appendhold(irdelay3)
-
-irservo = int(report['LATTICEINT']['irservo'])
+def rampupcnv( ch, delay, pow, ramp, cnvflag):
+    w = wfm.wave( ch, 0., ir_ss)
+    w.appendhold( delay)
+    w.linear( pow, ramp, cnvflag)
+    return w
+    
+def rampup( ch, delay, pow, ramp):
+    w = wfm.wave( ch, 0., ir_ss)
+    w.appendhold( delay)
+    w.linear( pow, ramp)
+    return w
+    
+irservo = int(LI.irservo)
 # irservo = 0  --> -111  --> no conversion --> work in VOLTAGES
 # irservo = 1  --> -11  --> conversion --> work in RECOILS
 cnvflag = -11 if irservo==1 else -111 
+    
+ir1 = rampupcnv( 'ir1pow', LI.irdelay1, LI.irpow1, LI.irrampdt1, cnvflag)
+ir2 = rampupcnv( 'ir2pow', LI.irdelay2, LI.irpow2, LI.irrampdt2, cnvflag)
+ir3 = rampupcnv( 'ir3pow', LI.irdelay3, LI.irpow3, LI.irrampdt3, cnvflag)
 
-ir1.linear(float(report['LATTICEINT']['irpow1']),irramp1, cnvflag )
-ir2.linear(float(report['LATTICEINT']['irpow2']),irramp2, cnvflag )
-ir3.linear(float(report['LATTICEINT']['irpow3']),irramp3, cnvflag )
+gr1 = rampup( 'greenpow1', LI.grdelay1, LI.grpow1, LI.grrampdt1)
+gr2 = rampup( 'greenpow2', LI.grdelay2, LI.grpow2, LI.grrampdt2)
+gr3 = rampup( 'greenpow3', LI.grdelay3, LI.grpow3, LI.grrampdt3)
 
-gr1  = wfm.wave('greenpow1', 0., ir_ss)
-gr2  = wfm.wave('greenpow2', 0., ir_ss)
-gr3  = wfm.wave('greenpow3', 0., ir_ss)
-
-grdelay1 = float(report['LATTICEINT']['grdelay1'])
-grdelay2 = float(report['LATTICEINT']['grdelay2'])
-grdelay3 = float(report['LATTICEINT']['grdelay3'])
-
-gr1.appendhold(grdelay1)
-gr2.appendhold(grdelay2)
-gr3.appendhold(grdelay3)
-
-grramp1 = float(report['LATTICEINT']['grrampdt1'])
-grramp2 = float(report['LATTICEINT']['grrampdt2'])
-grramp3 = float(report['LATTICEINT']['grrampdt3'])
-gr1.linear(float(report['LATTICEINT']['grpow1']),grramp1)
-gr2.linear(float(report['LATTICEINT']['grpow2']),grramp2)
-gr3.linear(float(report['LATTICEINT']['grpow3']),grramp3)
 
 ramptime = s.analogwfm_add(ir_ss,[ir1,ir2,ir3,gr1,gr2,gr3])
 print "...Lattice ramp time = " + str(ramptime) + " ms"
 
-# Turn on IR lattice beams
-s.wait(irdelay1)
-s.digichg('irttl1', float(report['LATTICEINT']['ir1']) )
-s.wait(-irdelay1+irdelay2)
-s.digichg('irttl2', float(report['LATTICEINT']['ir2']) )
-s.wait(irdelay3-irdelay2)
-s.digichg('irttl3', float(report['LATTICEINT']['ir3']) )
-s.wait(-irdelay3)
 
-s.wait(grdelay1)
-s.digichg('greenttl1', float(report['LATTICEINT']['gr1']) )
-s.wait(-grdelay1+grdelay2)
-s.digichg('greenttl2', float(report['LATTICEINT']['gr2']) )
-s.wait(-grdelay2+grdelay3)
-s.digichg('greenttl3', float(report['LATTICEINT']['gr3']) )
-s.wait(-grdelay3)
+# Turn on IR, GR TTLs
+def ttlon( delay, ch, bool):
+    s.wait(delay)
+    s.digichg( ch, bool)
+    s.wait(-delay)
+
+ttlon( LI.irdelay1, 'irttl1', LI.ir1)
+ttlon( LI.irdelay2, 'irttl2', LI.ir2)
+ttlon( LI.irdelay3, 'irttl3', LI.ir3)
+ttlon( LI.grdelay1, 'greenttl1', LI.gr1)
+ttlon( LI.grdelay2, 'greenttl2', LI.gr2)
+ttlon( LI.grdelay3, 'greenttl3', LI.gr3)
+
 
 # Go to the end of the lattice turn on
 s.wait(ramptime)
 
 # Wait after lattice is ramped up
-inlattice = float(report['LATTICEINT']['inlattice'])
-s.wait(inlattice)
+s.wait(LI.inlattice)
 
 
-# Go to scattering length zero-crossing
-evap_ss = float(report['EVAP']['evapss'])
-# Time needed to re-latch the trigger for the AOUTS
-if inlattice < 20:
+#---Go to scattering length zero-crossing
+if LI.inlattice < 20:
     buffer = 20.0
 else:
     buffer = 0.
 s.wait(buffer)
-bias = float(report['FESHBACH']['bias'])
-zcrampdt = float(report['ZEROCROSS']['zcrampdt'])
-zcdt = float(report['ZEROCROSS']['zcdt'])
-zcbias = float(report['ZEROCROSS']['zcbias'])
-bfield = wfm.wave('bfield',bias,evap_ss)
-bfield.linear(zcbias,zcrampdt)
-bfield.appendhold(zcdt)
-s.analogwfm_add(evap_ss,[bfield])
-s.wait(zcdt+zcrampdt)
 
 
-
+fieldF = EVAP.fieldrampfinal if EVAP.image > EVAP.fieldrampt0 else FB.bias
+bfield = wfm.wave('bfield', fieldF, EVAP.evapss)
+bfield.linear(ZC.zcbias, ZC.zcrampdt)
+bfield.appendhold(ZC.zcdt)
+s.analogwfm_add(EVAP.evapss,[bfield])
+s.wait(ZC.zcdt + ZC.zcrampdt)
 
 
 #Testing if field gradient is holding the atoms tightly in the Top/Bottom beam
@@ -160,33 +149,31 @@ s.wait(zcdt+zcrampdt)
 #~ s.analogwfm_add(evap_ss,[bfield])
 #~ s.wait(-zcwait)
 
-if latticeint.flicker == 1:
-    s.wait(-latticeint.flickerdt)
+if LI.flicker == 1:
+    s.wait(-LI.flickerdt)
     s.digichg('odtttl',0)
-    s.wait(latticeint.flickerdt)
+    s.wait(LI.flickerdt)
     s.digichg('odtttl',1)
 
 
-#print s.digital_chgs_str(500,100000., ['cameratrig','probe','odtttl','prshutter'])
-inzc = float(report['LATTICEINT']['inzc'])
-s.wait(inzc)
+s.wait(LI.inzc)
 
 #RELEASE FROM ODT
 #print s.digital_chgs_str(500,100000., ['cameratrig','probe','odtttl','prshutter'])
 
-odtoff = float(report['LATTICEINT']['odtoff'])
-s.wait(odtoff)
+
+s.wait(LI.odtoff)
 s.digichg('odtttl',0)
 s.digichg('odt7595',0)
 s.digichg('ipgttl',0)
-if latticeint.flicker ==1:  
+if LI.flicker ==1:  
     s.digichg('greenttl1',0)
     s.digichg('greenttl2',0)
     s.digichg('greenttl3',0)
     s.digichg('irttl1',0)
     s.digichg('irttl2',0)
     s.digichg('irttl3',0)
-s.wait(-odtoff)
+s.wait(-LI.odtoff)
 
 
 s.digichg('greenttl1',0)
@@ -196,8 +183,7 @@ s.digichg('irttl1',0)
 s.digichg('irttl2',0)
 s.digichg('irttl3',0)
 
-latticetof = float(report['LATTICEINT']['latticetof'])
-s.wait(latticetof)
+s.wait(LI.latticetof)
 
 #TAKE PICTURES
 light = 'probe'
@@ -208,9 +194,9 @@ trap_on_picture = 0
 kinetics = gen.bstr('Kinetics',report)
 print '...kinetics = ' + str(kinetics)
 if kinetics == True:
-    s,SERIESDT = andor.KineticSeries4(s,exp,light,noatoms, trap_on_picture)
+    s,SERIESDT = andor.KineticSeries4(s,ANDOR.exp,light,ANDOR.noatoms, trap_on_picture)
 else:
-    s,SERIESDT = andor.FKSeries2(s,stepsize,exp,light,noatoms, trap_on_picture)
+    s,SERIESDT = andor.FKSeries2(s,stepsize,ANDOR.exp,light,ANDOR.noatoms, trap_on_picture)
 #print s.digital_chgs_str(500,100000.,['cameratrig','probe','odtttl','prshutter'])
 
 #After taking a picture sequence returns at time of the last probe strobe

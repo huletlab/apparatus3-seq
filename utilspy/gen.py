@@ -134,6 +134,7 @@ def shutdown(s):
 	s.digichg('bservo',1)
 	s.digichg('quick2',0)
 	s.digichg('select2',0)
+	s.digichg('analogimgttl',0)
 	return s
 	
 def setphase(s):

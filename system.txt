@@ -47,6 +47,14 @@ PXI1Slot7/port0/line4   rfttl		0
 PXI1Slot7/port0/line5   camerashut		0
 PXI1Slot7/port0/line6   quick2		0
 PXI1Slot7/port0/line7   hfimg2		0
+PXI1Slot8/port0/line0   analogimgttl		0
+PXI1Slot8/port0/line1   latticeinterlockbypass		0
+PXI1Slot8/port0/line2   DG_NC2		0
+PXI1Slot8/port0/line3   DG_NC3		0
+PXI1Slot8/port0/line4   DG_NC4		0
+PXI1Slot8/port0/line5   DG_NC5		0
+PXI1Slot8/port0/line6   DG_NC6		0
+PXI1Slot8/port0/line7   DG_NC7		0
 #
 #
 ###########################################################
@@ -79,7 +87,6 @@ PXI1Slot2/port0/line7   uvaomex		0
 #PXI1Slot2/ao3	uvfppiezo		0.000
 #PXI1Slot2/ao4	uv1freq			7.600
 #PXI1Slot7/ao7	rfmod		0.00
-
 ANALOG_OUT
 PXI1Slot2/ao0	reppow			7.00
 PXI1Slot2/ao1	trappow			7.00
@@ -95,44 +102,20 @@ Dev1/ao2	uvpow2			0.0
 Dev1/ao3	uvpow			6.0
 PXI1Slot7/ao0	ir1pow		0.00
 PXI1Slot7/ao1	ir2pow	0.00
-PXI1Slot7/ao2	ir3pow		0.00
+PXI1Slot7/ao2	ir3pow	0.00
 PXI1Slot7/ao3	greenpow1		0.00
 PXI1Slot7/ao4	greenpow2		0.00
 PXI1Slot7/ao5	greenpow3		0.00
 PXI1Slot7/ao6	ipganalog	10.00
 PXI1Slot7/ao7	lcr3		0.00
-PXI1Slot8/ao0	NC0		0.00
-PXI1Slot8/ao1	NC1		0.00
-PXI1Slot8/ao2	NC2		0.00
-PXI1Slot8/ao3	NC3		0.00
-PXI1Slot8/ao4	NC4		0.00
-PXI1Slot8/ao5	NC5	0.00
-PXI1Slot8/ao6	NC6		0.00
-PXI1Slot8/ao7	NC7		0.00
-PXI1Slot8/ao8	NC8		0.00
-PXI1Slot8/ao9	NC9		0.00
-PXI1Slot8/ao10	NC10		0.00
-PXI1Slot8/ao11	NC11		0.00
-PXI1Slot8/ao12	NC12		0.00
-PXI1Slot8/ao13	NC13		0.00
-PXI1Slot8/ao14	NC14		0.00
-PXI1Slot8/ao15	NC15		0.00
-PXI1Slot8/ao16	NC16		0.00
-PXI1Slot8/ao17	NC17		0.00
-PXI1Slot8/ao18	NC18		0.00
-PXI1Slot8/ao19	NC19		0.00
-PXI1Slot8/ao20	NC20		0.00
-PXI1Slot8/ao21	NC21		0.00
-PXI1Slot8/ao22	NC22		0.00
-PXI1Slot8/ao23	NC23		0.00
-PXI1Slot8/ao24	NC24		0.00
-PXI1Slot8/ao25	NC25		0.00
-PXI1Slot8/ao26	NC26		0.00
-PXI1Slot8/ao27	NC27		0.00
-PXI1Slot8/ao28	NC28		0.00
-PXI1Slot8/ao29	NC29		0.00
-PXI1Slot8/ao30	NC30		0.00
-PXI1Slot8/ao31	NC31		0.00
+PXI1Slot8/ao0	uv1freq		0.00
+PXI1Slot8/ao1	shunt		0.00
+PXI1Slot8/ao2	rfmod		0.00
+PXI1Slot8/ao3	analogimg		0.00
+PXI1Slot8/ao4	uvfppiezo	0.00
+PXI1Slot8/ao5	NC6	0.00
+PXI1Slot8/ao6	NC7	0.00
+PXI1Slot8/ao7	NC8		0.00
 #
 #
 ###########################################################
@@ -154,8 +137,8 @@ PXI1Slot8/ao31	NC31		0.00
 ANALOG_DEVICE
 PXI1Slot2	slot2trig		/PXI1Slot2/PFI2
 Dev1		dev1trig		/PXI1Slot2/PFI7
-PXI1Slot7	slot7trig		/PXI1Slot7/PFI7
-PXI1Slot8	slot8trig		/PXI1Slot8/PFI7
+PXI1Slot7	slot7trig		/PXI1Slot8/PFI2
+PXI1Slot8	slot8trig		/PXI1Slot8/PFI1
 #
 #
 ###########################################################

@@ -213,6 +213,15 @@ class parse_seq:
                         
                         if not self.analog_data[i][j] == other.analog_data[i][j] :
                             
+                            if len(self.analog_data[i][j]) != len(other.analog_data[i][j]):
+                               msg = ' length does not match : %d != %d' % (len(self.analog_data[i][j]), len(other.analog_data[i][j]))
+                            else:
+                               msg = ' length matches %d' % (len(self.analog_data[i][j]))
+                               for val in range( len( self.analog_data[i][j])):
+                                   if  self.analog_data[i][j][val] != other.analog_data[i][j][val]:
+                                      msg = msg + '\n\t\t val = %d :  %f != %f' % (val, self.analog_data[i][j][val], other.analog_data[i][j][val] )  
+                              
+                            
                             diff_counter_temp = diff_counter_temp + 1
                             
                             analog_channel_temp[i].append(analog)
@@ -221,7 +230,7 @@ class parse_seq:
                             
                             analog_data_other_temp[i].append(other.analog_data[i][j])
                             
-                            diff_message = diff_message + '\t\t' + analog + '\n'
+                            diff_message = diff_message + '\t\t' + analog + msg + '\n'
                             
                     if diff_counter_temp == 0: diff_message = diff_message +'\t\tNONE\n\n'
                         

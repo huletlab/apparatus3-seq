@@ -131,40 +131,26 @@ s.wait( lbf.quick2time - lbf.brampdelay1 )
 ir1  = lattice.lattice_wave('ir1pow', ir_p0, ir_ss,volt=-11)
 ir2  = lattice.lattice_wave('ir2pow', ir_p0, ir_ss,volt=-11)
 ir3  = lattice.lattice_wave('ir3pow', ir_p0, ir_ss,volt=-11)
-ir1.appendhold( lbf.ir1delay1 )
-ir2.appendhold( lbf.ir2delay1 )
-ir3.appendhold( lbf.ir3delay1 )
-if lbf.tanhrise == 1.0:
-    ir1.tanhRise(lbf.ir1pow1,lbf.ir1rampdt1, lbf.tanhtau, lbf.tanhshift)
-    ir2.tanhRise(lbf.ir2pow1,lbf.ir2rampdt1, lbf.tanhtau, lbf.tanhshift)
-    ir3.tanhRise(lbf.ir3pow1,lbf.ir3rampdt1, lbf.tanhtau, lbf.tanhshift)
-elif lbf.sinhrise == 1.0:
-    ir1.sinhRise(lbf.ir1pow1,lbf.ir1rampdt1, lbf.ir1rampdt1 * lbf.sinhtau)
-    ir2.sinhRise(lbf.ir2pow1,lbf.ir2rampdt1, lbf.ir2rampdt1 * lbf.sinhtau)
-    ir3.sinhRise(lbf.ir3pow1,lbf.ir3rampdt1, lbf.ir3rampdt1 * lbf.sinhtau)
-else:
-    ir1.linear(lbf.ir1pow1,lbf.ir1rampdt1, volt=-11)
-    ir2.linear(lbf.ir2pow1,lbf.ir2rampdt1, volt=-11)
-    ir3.linear(lbf.ir3pow1,lbf.ir3rampdt1, volt=-11)	
-
 gr1  = lattice.lattice_wave('greenpow1', gr_p0, ir_ss)
 gr2  = lattice.lattice_wave('greenpow2', gr_p0, ir_ss)
 gr3  = lattice.lattice_wave('greenpow3', gr_p0, ir_ss)
-gr1.appendhold(lbf.gr1delay1)
-gr2.appendhold(lbf.gr2delay1)
-gr3.appendhold(lbf.gr3delay1)
-if lbf.tanhrise == 1.0:
-    gr1.tanhRise(lbf.gr1pow1,lbf.gr1rampdt1, lbf.tanhtau, lbf.tanhshift)
-    gr2.tanhRise(lbf.gr2pow1,lbf.gr2rampdt1, lbf.tanhtau, lbf.tanhshift)
-    gr3.tanhRise(lbf.gr3pow1,lbf.gr3rampdt1, lbf.tanhtau, lbf.tanhshift)
-elif lbf.sinhrise == 1.0:
-    gr1.sinhRise(lbf.gr1pow1,lbf.gr1rampdt1, lbf.gr1rampdt1 * lbf.sinhtau)
-    gr2.sinhRise(lbf.gr2pow1,lbf.gr2rampdt1, lbf.gr2rampdt1 * lbf.sinhtau)
-    gr3.sinhRise(lbf.gr3pow1,lbf.gr3rampdt1, lbf.gr3rampdt1 * lbf.sinhtau)
-else:
-	gr1.linear(lbf.gr1pow1,lbf.gr1rampdt1)
-	gr2.linear(lbf.gr2pow1,lbf.gr2rampdt1)
-	gr3.linear(lbf.gr3pow1,lbf.gr3rampdt1)
+
+def latticeRamp(wave,delay,tanhrise,tanhtau,tanhshift,sinhrise,sinhtau,pow,dt):
+    wave.appendhold(delay)
+    if tanhrise==1.0:
+        wave.tanhRise(pow,dt,tanhtau,tanhshift)
+    elif sinhrise ==1.0:
+        wave.sinhRise(pow,dt,dt*sinhtau)
+    else:
+        wave.linear(pow,dt,volt=-11)
+        
+latticeRamp(ir1,lbf.ir1delay1,lbf.tanhrise,lbf.tanhtau,lbf.tanhshift,lbf.sinhrise,lbf.sinhtau,lbf.ir1pow1,lbf.ir1rampdt1)
+latticeRamp(ir2,lbf.ir2delay1,lbf.tanhrise,lbf.tanhtau,lbf.tanhshift,lbf.sinhrise,lbf.sinhtau,lbf.ir2pow1,lbf.ir2rampdt1)
+latticeRamp(ir3,lbf.ir3delay1,lbf.tanhrise,lbf.tanhtau,lbf.tanhshift,lbf.sinhrise,lbf.sinhtau,lbf.ir3pow1,lbf.ir3rampdt1)
+latticeRamp(gr1,lbf.gr1delay1,lbf.tanhrise,lbf.tanhtau,lbf.tanhshift,lbf.sinhrise,lbf.sinhtau,lbf.gr1pow1,lbf.gr1rampdt1)
+latticeRamp(gr2,lbf.gr2delay1,lbf.tanhrise,lbf.tanhtau,lbf.tanhshift,lbf.sinhrise,lbf.sinhtau,lbf.gr2pow1,lbf.gr2rampdt1)
+latticeRamp(gr3,lbf.gr3delay1,lbf.tanhrise,lbf.tanhtau,lbf.tanhshift,lbf.sinhrise,lbf.sinhtau,lbf.gr3pow1,lbf.gr3rampdt1)
+
 
 # Bfield, IR, and Green are at intermediate value. Time elapsed is == intermediate_dt
 intermediate_dt = max(  lbf.gr1delay1 + lbf.gr1rampdt1, \
@@ -191,19 +177,14 @@ gr3.extend(intermediate_dt)
 ## RAMPS TO FINAL VALUES
 #########################################
 #Ramp IR, Green and field to final value
-ir1.appendhold(lbf.ir1delay2)
-ir2.appendhold(lbf.ir2delay2)
-ir3.appendhold(lbf.ir3delay2)
-ir1.linear(lbf.ir1pow2,lbf.ir1rampdt2 )
-ir2.linear(lbf.ir2pow2,lbf.ir2rampdt2)
-ir3.linear(lbf.ir3pow2,lbf.ir3rampdt2)
+#Zeros in latticeRamp means it is using linear ramp 
+latticeRamp(ir1,lbf.ir1delay2,0,0,0,0,0,lbf.ir1pow2,lbf.ir1rampdt2)
+latticeRamp(ir2,lbf.ir2delay2,0,0,0,0,0,lbf.ir2pow2,lbf.ir2rampdt2)
+latticeRamp(ir3,lbf.ir3delay2,0,0,0,0,0,lbf.ir3pow2,lbf.ir3rampdt2)
+latticeRamp(gr1,lbf.gr1delay2,0,0,0,0,0,lbf.gr1pow2,lbf.gr1rampdt2)
+latticeRamp(gr2,lbf.gr2delay2,0,0,0,0,0,lbf.gr2pow2,lbf.gr2rampdt2)
+latticeRamp(gr3,lbf.gr3delay2,0,0,0,0,0,lbf.gr3pow2,lbf.gr3rampdt2)
 
-gr1.appendhold(lbf.gr1delay2)
-gr2.appendhold(lbf.gr2delay2)
-gr3.appendhold(lbf.gr3delay2)
-gr1.linear(lbf.gr1pow2,lbf.gr1rampdt2)
-gr2.linear(lbf.gr2pow2,lbf.gr2rampdt2)
-gr3.linear(lbf.gr3pow2,lbf.gr3rampdt2)
 
 
 bfield.appendhold(lbf.brampdelay2)

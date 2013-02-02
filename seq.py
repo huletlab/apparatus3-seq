@@ -197,7 +197,8 @@ class wfmout:
 						values = ','.join(vals)
 					elif length < stoplen:
 						vals = vals + (stoplen-length)*[vals[-1]]
-						#print "APPENDING TO %s : (%d < %d)" %(ch['name'],length, stoplen)
+						#print "APPENDING TO %s : (%d < %d) " %(ch['name'],length, stoplen)
+						#print vals
 						#print len(vals)
 						values = ','.join(vals)
 					s2=s2+values
@@ -210,7 +211,7 @@ class wfmout:
 			
 			#Find the value after the last ',' and strips the end of line
 			try:
-				endvalue=',%.4f' % float(s2[s2.rfind(',')+1:-1])
+				endvalue="," + s2.split(",")[-1]
 			except:
 				print "---> ERROR: The last value of the ramp %s could not be obtained!" %  ch['path']
 				exit(1)
