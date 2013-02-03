@@ -216,10 +216,30 @@ class parse_seq:
                             if len(self.analog_data[i][j]) != len(other.analog_data[i][j]):
                                msg = ' length does not match : %d != %d' % (len(self.analog_data[i][j]), len(other.analog_data[i][j]))
                             else:
-                               msg = ' length matches %d' % (len(self.analog_data[i][j]))
+                               msg = ' length matches : %d' % (len(self.analog_data[i][j]))
+                               maxdiff = np.amax( np.absolute( np.array(self.analog_data[i][j]) - np.array(other.analog_data[i][j]) ) )
+                               msg = msg + '\n\t\t   Max difference in voltage = %.6f V' % maxdiff
+                               m1mV = 0
+                               m10mV = 0
+                               m20mV = 0
+                               m40mV = 0
                                for val in range( len( self.analog_data[i][j])):
-                                   if  self.analog_data[i][j][val] != other.analog_data[i][j][val]:
-                                      msg = msg + '\n\t\t val = %d :  %f != %f' % (val, self.analog_data[i][j][val], other.analog_data[i][j][val] )  
+                                   if np.absolute( self.analog_data[i][j][val] - other.analog_data[i][j][val] ) > 0.001:
+                                      m1mV = m1mV +1 
+                                   if np.absolute( self.analog_data[i][j][val] - other.analog_data[i][j][val] ) > 0.010:
+                                      m10mV = m10mV +1 
+                                   if np.absolute( self.analog_data[i][j][val] - other.analog_data[i][j][val] ) > 0.020:
+                                      m20mV = m20mV +1 
+                                   if np.absolute( self.analog_data[i][j][val] - other.analog_data[i][j][val] ) > 0.040:
+                                      m40mV = m40mV +1 
+                                   
+                               msg = msg + '\n\t\t   %06d samples differ by >  1 mV' % m1mV
+                               msg = msg + '\n\t\t   %06d samples differ by > 10 mV' % m10mV
+                               msg = msg + '\n\t\t   %06d samples differ by > 20 mV' % m20mV
+                               msg = msg + '\n\t\t   %06d samples differ by > 40 mV' % m40mV
+
+                                   #if self.analog_data[i][j][val] != other.analog_data[i][j][val]:
+                                   #   msg = msg + '\n\t\t sample# = %d :  %f != %f' % (val, self.analog_data[i][j][val], other.analog_data[i][j][val] )  
                               
                             
                             diff_counter_temp = diff_counter_temp + 1
@@ -230,7 +250,7 @@ class parse_seq:
                             
                             analog_data_other_temp[i].append(other.analog_data[i][j])
                             
-                            diff_message = diff_message + '\t\t' + analog + msg + '\n'
+                            diff_message = diff_message + '\t\t' + analog + msg + '\n\n'
                             
                     if diff_counter_temp == 0: diff_message = diff_message +'\t\tNONE\n\n'
                         

@@ -7,7 +7,7 @@ sys.path.append('L:/software/apparatus3/seq/seq')
 sys.path.append('L:/software/apparatus3/seq/utilspy')
 sys.path.append('L:/software/apparatus3/seq/seqspy')
 sys.path.append('L:/software/apparatus3/convert')
-import seqconf, wfm, gen, math, cnc, time, os, numpy, hashlib, evap
+import seqconf, wfm, gen, math, cnc, time, os, numpy, hashlib, evap, physics
 from convert import cnv
 
 class lattice_wave(wfm.wave):
@@ -17,7 +17,8 @@ class lattice_wave(wfm.wave):
 		Several methods are added that allow doing special ramps
 		"""
 	def tanhRise(self,vf,dt,tau,shift):
-		vf=cnv(self.name,vf)
+		#vf=cnv(self.name,vf)
+		vf=physics.cnv(self.name,vf)
 		v0=self.last()
 		if dt == 0.0:
 			self.y[ self.y.size -1] = vf

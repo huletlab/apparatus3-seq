@@ -305,7 +305,7 @@ if lbf.inlattice < separate_ramps_cuttof:
 	odtpow = odt.odt_wave('odtpow', cpowend, ir_ss)
 	odtpow.appendhold( imagetime + lbf.odtdelay )
 	if lbf.odtzero == 1:
-		odtpow.linear( 0.0,  lbf.odtrampdt)
+		odtpow.odt_linear( cpowend, 0.0,  lbf.odtrampdt)
 
 	waveforms = [ir1,ir2,ir3,lcr1,lcr2,lcr3,gr1,gr2,gr3,bfield, odtpow]
 
@@ -362,7 +362,7 @@ else:
 	odtpow = odt.odt_wave('odtpow', cpowend, ir_ss)
 	odtpow.appendhold( lbf.inlattice - (-lbf.odtdelay) - start2time)
 	if lbf.odtzero  == 1:
-		odtpow.linear(0.0, lbf.odtrampdt)
+		odtpow.odt_linear( cpowend, 0.0, lbf.odtrampdt)
 	odtpow.extend( lbf.inlattice - start2time)
 	
 	ir1  = wfm.wave('ir1pow', lbf.ir1pow2, ir_ss)

@@ -298,7 +298,7 @@ class wave:
 		hashbase = hashbase + '%.8f' % v0
 		hashbase = hashbase + '%.8f' % N
 		hashbase = hashbase + '%.8f' % dt
-		hashbase = hashbase + wfm.rawcalibdat( self.name ) 
+		hashbase = hashbase + rawcalibdat( self.name ) 
 		
 		ramphash = seqconf.ramps_dir() + 'linearPhys_' \
 			           + hashlib.md5( hashbase ).hexdigest()

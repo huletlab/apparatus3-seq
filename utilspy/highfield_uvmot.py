@@ -28,7 +28,7 @@ def  go_to_highfield(s):
 	motpow, repdet, trapdet, reppow, trappow, bfield, ENDCNC = cnc.cncRamps()
 
 	#---Load UVMOT from CNCMOT
-	uvfppiezo, uvpow2, uvpow, motpow, bfield, ENDUVMOT = uvmot.uvRamps(motpow, bfield, ENDCNC)
+	uvpow2, uvpow, motpow, bfield, ENDUVMOT = uvmot.uvRamps(motpow, bfield, ENDCNC)
 
 	repdet.extend(ENDUVMOT)
 	trapdet.extend(ENDUVMOT)
@@ -59,7 +59,7 @@ def  go_to_highfield(s):
 	odtpow0.extend(ENDUVMOT)
 	
 	#---Add waveforms to sequence
-	s.analogwfm_add(ss,[ motpow, repdet, trapdet, bfield, reppow, trappow, uvfppiezo, uvpow, uvpow2,odtpow0,shunt])
+	s.analogwfm_add(ss,[ motpow, repdet, trapdet, bfield, reppow, trappow, uvpow, uvpow2,odtpow0,shunt])
 	
 		
 	#wait normally rounds down using floor, here the duration is changed before so that
