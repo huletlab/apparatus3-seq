@@ -31,6 +31,7 @@ def getreport():
 	#~ report=savedir+'report'+shotnum+'.INI'
 	#print(report)
 	report=seqconf.savedir()+'report'+seqconf.runnumber()+'.INI'
+	#print "report path = %s" % report
 	report=ConfigObj(report)
 	return report
 	

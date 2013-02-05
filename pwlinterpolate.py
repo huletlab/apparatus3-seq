@@ -168,10 +168,10 @@ class interp1d(object):
 
             if x_new.ndim < 1:
                 out_of_bounds_below = x_new
-                msg = msg + '\n\t' + str(x_new) 
+                msg = msg + '\n\t' + str(out_of_bounds_below) 
             else:
                 out_of_bounds_below  = x_new[ np.where( x_new < self.x[0] ) ]
-                msg = msg + '\n\t' + str(x_new) 
+                msg = msg + '\n\t' + str(out_of_bounds_below) 
             
             print msg 
               
@@ -179,12 +179,27 @@ class interp1d(object):
 
             raise ValueError("A value in x_new is below the interpolation "
                 "range.")
+                
+                
         if self.bounds_error and above_bounds.any():
-            #out_of_bounds_above  = x_new[ np.where( x_new > self.x[-1]) ]
-            print "The following values are above the interpolation range: "
-            #print out_of_bounds_above
+            out_of_bounds_above = None
+              
+            msg = "The following values are above the interpolation range: "
+
+            if x_new.ndim < 1:
+                out_of_bounds_above = x_new
+                msg = msg + '\n\t' + str(out_of_bounds_above) 
+            else:
+                out_of_bounds_above  = x_new[ np.where( x_new < self.x[0] ) ]
+                msg = msg + '\n\t' + str(out_of_bounds_above) 
+            
+            print msg 
+              
+            errormsg.box('INTERPOLATION :: ' + self.name, msg)
+
             raise ValueError("A value in x_new is above the interpolation "
                 "range.")
+            
 
         # !! Should we emit a warning if some values are out of bounds?
         # !! matlab does not.

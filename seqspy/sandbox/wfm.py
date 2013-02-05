@@ -164,13 +164,13 @@ class wave:
 			hashbase = hashbase + '%.8f' % tau
 			ramphash = seqconf.ramps_dir() + 'sinhRise_' + hashlib.md5(hashbase).hexdigest()
 			
-			if not os.path.exists(ramphash):
+			if not os.path.exists(ramphash) or True:
 				print '...Making new sinhRise ramp'
 				
 				x = numpy.linspace( dt/N, dt, N)
 				ramp = v0 + (vf-v0)*(x/tau+(x/tau)**3.0/6.0)/(dt/tau+(dt/tau)**3.0/6.0)
 				
-				ramp.tofile(ramphash,sep=',',format="%.4f")
+				#ramp.tofile(ramphash,sep=',',format="%.4f")
 				
 				
 			else:
@@ -247,8 +247,6 @@ class wave:
 	def linear_phys(self,vf,dt):
 		"""Adds linear ramp to waveform, starts at current last 
 			value and goes to 'vf' in 'dt'"""
-			
-		print "Using cnv in linear_phys"
 		
 		if self.lastPhys == None:
 			msg = "The last physics value is not available\n for this waveform."
@@ -256,7 +254,7 @@ class wave:
 			errormsg.box('wfm.linear_phys :: ' + self.name, msg)
 			exit(1)
 		
-		print "linear_phys last physical value is = %f" % self.lastPhys
+		print "...linear_phys last physical value is = %f" % self.lastPhys
 		
 		v0 = self.lastPhys
 		
@@ -266,6 +264,7 @@ class wave:
 		if dt == 0.0:
 			self.y[ self.y.size -1] = physics.cnv(self.name,vf)
 			return
+
 			
 		N = int(math.floor(dt/self.ss))
 
@@ -280,7 +279,7 @@ class wave:
 		ramphash = seqconf.ramps_dir() + 'linearPhys_' \
 			           + hashlib.md5( hashbase ).hexdigest()
 	
-		if not os.path.exists(ramphash):
+		if not os.path.exists(ramphash) or True:
 				print '...Making new linearPhys ramp for ' + self.name
 				
 				x = numpy.linspace( v0 + (vf-v0)/N , vf , N )
@@ -294,7 +293,7 @@ class wave:
 				#	print "EQUAL!"
 					
 					
-				ramp.tofile(ramphash,sep=',',format="%.4f")
+				#ramp.tofile(ramphash,sep=',',format="%.4f")
 				
 				
 		else:
@@ -302,6 +301,7 @@ class wave:
 				ramp =  numpy.fromfile(ramphash,sep=',')	
 
 		self.y=numpy.append(self.y, ramp)
+		self.lastPhys = vf
 		
 		return
 
@@ -311,9 +311,9 @@ class wave:
 
 
 
-
-
-		
+	####
+	####
+	####
 	#### FROM HERE ON RAMPS ARE NOT USED OR OBSOLETE ###
 		
 	def lineardither(self,vf,dt,ramps):
@@ -410,12 +410,6 @@ class wave:
 				f=v0 + (vf-v0)*(x/tau-(x/tau)**3.0/6.0)/(dt/tau-(dt/tau)**3.0/6.0)
 				self.y=numpy.append(self.y, [f])
 		return
-		
-
-		
-
-
-
 		
 		
 	def insertlin(self,vf,dt,start):

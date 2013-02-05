@@ -5,8 +5,29 @@ import matplotlib.pyplot as plt
 import argparse
 import glob
 import os
+import pprint
 
 import pwlinterpolate, errormsg
+
+
+if os.name == 'posix':
+    lab = '/lab/'
+else:
+    lab = 'L:/'
+    
+
+
+
+import sys
+sys.path.append(lab + 'software/apparatus3/seq')
+sys.path.append(lab + 'software/apparatus3/seq/utilspy')
+
+sys.path.append(lab + 'software/apparatus3/seq/utilspy')
+
+
+
+import seqconf, gen
+
 
 channel_list = [
                  'odtfcpow', \
@@ -20,6 +41,12 @@ channel_list = [
                  'bfield(100G)', \
                  'ainns(100a0)', \
                  'arice(100a0)', \
+                 'gr1(Er)',\
+                 'gr2(Er)',\
+                 'gr3(Er)',\
+                 'ir1(Er)',\
+                 'ir2(Er)',\
+                 'ir3(Er)',\
                ]
 
 
@@ -57,17 +84,145 @@ V0d['greenpow3'] = 8.84e-3
 #Er max
 ErMaxd = {}
 ErMaxd['ir1pow'] = 83.6
-ErMaxd['ir2pow'] = 81.3
+ErMaxd['ir2pow'] = 81.2
 ErMaxd['ir3pow'] = 93.4
 ErMaxd['greenpow1'] = 9.97
 ErMaxd['greenpow2'] = 12.6
-ErMaxd['greenpow3'] = 33.6
+ErMaxd['greenpow3'] = 33.5
 
 #V max
 VMaxd = {}
-VMaxd['greenpow1'] = 4.18
+VMaxd['ir1pow'] = 10.0
+VMaxd['ir2pow'] = 10.0
+VMaxd['ir3pow'] = 10.0
+VMaxd['greenpow1'] = 4.17
 VMaxd['greenpow2'] = 5.32
 VMaxd['greenpow3'] = 10.0
+
+
+
+
+try:
+    ODT = gen.getsection('ODT')
+    ODTCALIB = gen.getsection('ODTCALIB')
+    if ODT.use_servo == 0:
+        b  = ODTCALIB.b_nonservo
+        m1 = ODTCALIB.m1_nonservo
+        m2 = ODTCALIB.m2_nonservo
+        m3 = ODTCALIB.m3_nonservo
+        kink1 = ODTCALIB.kink1_nonservo
+        kink2 = ODTCALIB.kink2_nonservo
+    elif ODT.use_servo == 1:
+        b  = ODTCALIB.b
+        m1 = ODTCALIB.m1
+        m2 = ODTCALIB.m2
+        m3 = 0.
+        kink1 = ODTCALIB.kink
+        kink2 = 11.
+
+except:
+    print
+    print "Could not setup odtpow calibration parameters."
+    print "Possibly because the report is not loaded."
+    print "If you are running this module as standalone"
+    print "the odtpow calibration params will be loaded"
+    print "from params.INI"
+    print 
+
+    from configobj import ConfigObj
+    report=ConfigObj( lab + 'software/apparatus3/log/params/params.INI' )
+    #print report
+    b=float(report['ODTCALIB']['b'])
+    m1=float(report['ODTCALIB']['m1'])
+    m2=float(report['ODTCALIB']['m2'])
+    m3=0.001
+    kink1=float(report['ODTCALIB']['kink'])
+    kink2=11
+        
+
+
+
+
+
+
+class odtpow_ch:
+    def __init__(self):
+        self.GT10warning = True
+        self.LT0warning = True
+        
+    def cnvcalib(self, phys):
+        # odt phys to volt conversion
+        # max odt power = 10.0
+        
+        volt = b+m1*kink1 + m2*(kink2-kink1) + m3*(phys-kink2) if phys > kink2 else \
+                b+m1*kink1 + m2*(phys-kink1) if phys > kink1 else b+m1*phys
+
+        if volt >10:
+            volt=10.	
+            if self.GT10warning==False:
+                errormsg.box('OdtpowConvert','Odtpow conversion has resulted in a value greater than 10 Volts!'\
+                                        +' \n\nResult will be coerced and this warning will not be shown again')
+                self.GT10warning=True
+        if volt <0.:
+            volt=0.
+            if self.LT0warning==False:
+                errormsg.box('OdtpowConvert','Odtpow conversion has resulted in a value less than 0 Volts!' \
+                                        + '\n\nResult will be coerced and this warning will not be shown again')
+                self.LT0warning=True                    
+                    
+        return volt
+    
+    def invcalib(self, volt):
+        
+        phys=(volt-b-m1*kink1-m2*(kink2-kink1))/m3+kink2 if volt> b+m1*kink1+m2*(kink2-kink1) \
+            else (volt-b-m1*kink1)/m2+kink1 if volt > b+m1*kink1 \
+                else (volt-b)/m1
+                    
+        if phys > 11.:
+            phys = 11.
+        if phys < 0.:
+            phys = 0.
+                    
+        return phys
+    
+    def f( self, p ): return p
+    def g( self, p ): return p
+        
+    def physlims(self):
+        return np.array([0., 11.0] )
+    def voltlims(self):
+        return np.array([0., 10.0] ) 
+
+
+class lattice_ch:
+    def __init__(self, name, w0, m, V0, ErMax, Vmax): 
+        self.name = name
+        self.w0 = w0
+        self.m = m
+        self.V0 = V0
+        self.ErMax = ErMax
+        self.Vmax = Vmax
+    def cnvcalib( self, val ):
+        if 'ir' in self.name:
+            return 1000. * val / 4. / 38709. * 1.4 * self.w0 * self.w0 
+        if 'gr' in self.name:
+            return 1000. * val / 1. / 39461. * 1.4 * self.w0 * self.w0
+    def invcalib( self, val ):
+        if 'ir' in self.name:
+            return val / 1000. * 4. * 38709. / 1.4 / self.w0 / self.w0
+        if 'gr' in self.name:
+            return val / 1000. * 1. * 39461. / 1.4 / self.w0 / self.w0
+            
+    def f(self, p):
+        return self.m * p + self.V0
+        
+    def g(self, p):
+        return (p-self.V0)/self.m
+    
+    def physlims(self):
+        return np.array([0., self.ErMax] )
+    def voltlims(self):
+        return np.array([0., self.Vmax] ) 
 
 
 
@@ -75,214 +230,342 @@ VMaxd['greenpow3'] = 10.0
 #Class for making physical to voltage conversions
 #
 class convert:
+    
+    def cnv(self, ch, val):
+        if ch not in self.fs.keys():
+            
+            print "Channels with defined conversions: "
+            pprint.pprint(self.fs.keys())
+            
+            errormsg.box('CONVERSION : ' + ch, 'No conversion defined for this channel')
+            raise ValueError("No conversion has been defined for channel = %s" % ch )
+            return None
+            
+        out = self.fs[ch](  self.cnvcalib[ch]( val) )
+        return self.check( ch, val, out)[0]
+        
+    def inv(self, ch, val):
+        if ch not in self.fs.keys():
+            
+            print "Channels with defined conversions: "
+            pprint.pprint(self.fs.keys())
+            
+            
+            errormsg.box('CONVERSION : ' + ch, 'No conversion defined for this channel')
+            raise ValueError("No conversion has been defined for channel = %s" % ch )
+            return None
+        
+        out = self.invcalib[ch]( self.gs[ch]( val) )
+        return self.check( ch, out, val)[1]
+    
     def __init__(self):
-        dats = glob.glob('L:/software/apparatus3/convert/data/*.dat')
+        dats = glob.glob(lab + 'software/apparatus3/convert/data/*.dat')
+        
+        ### This dictionaries define the functions used for conversion 
         self.fs={}
+        self.gs={}
+        self.cnvcalib={}
+        self.invcalib={}
+        self.physlims={}
+        self.voltlims={}
+        
+        
+        
+        ### The for loop below takes care of all the channels that 
+        ### are associated with a calibration file 
+        
         for d in dats:
             table = np.loadtxt(d, usecols  = (1,0))
+            
+            ydat = table[:,1]  # voltages
+            xdat = table[:,0] # calibrated quantity
+            
             ch =  os.path.splitext( os.path.split(d)[1] )[0]
+            
             try:
-                #f = interp1d( table[:,0], table[:,1], kind='linear')
-                #print "interpolating ch = %s" % d
-                f = pwlinterpolate.interp1d( table[:,0], table[:,1] , name = ch)
+                f = pwlinterpolate.interp1d( xdat, ydat , name = ch)
+                g = pwlinterpolate.interp1d( ydat, xdat , name = ch)
+                
             except ValueError as e:
                 print e
-                print "Could not define cubic interpolation function for : \n\t%s" % d
-                try:
-                    #f = interp1d( table[:,0], table[:,1], kind='linear')
-                    #f = interp1d( table[:,0], table[:,1], kind='linear')
-                    #f = UnivariateSpline( table[:,0], table[:,1], k=1, s=0)
-                    f = pwlinterpolate.interp1d( table[:,0], table[:,1] )
-                except ValueError as e:
-                    print e
-                    print "Could not define cubic interpolation function for : \n\t%s" % d
-                    exit(1)
+                print "Could not define piecewiwse linear nterpolation function for : \n\t%s" % d
+                exit(1)
             
             self.fs[ch] = f
+            self.gs[ch] = g
+            
+            
+            if ch == 'trapdet':
+                ### IN    :  MHz detuning at atoms
+                ### CALIB :  Double-pass AOM frequency
+                self.cnvcalib[ch] = lambda val: (val+120.+120.)/2. 
+                self.invcalib[ch] = lambda val: 2*val - 120 - 120. 
+                self.physlims[ch] = self.invcalib[ch]( np.array( [ np.amin(xdat), np.amax(xdat) ] ) ) 
+                self.voltlims[ch] = np.array([2.0, 8.0])
+                
+            elif ch == 'repdet':
+                ### IN    :  MHz detuning at atoms
+                ### CALIB :  Double-pass AOM frequency
+                self.cnvcalib[ch] = lambda val: (val+228.2 -80.0 + 120.)/2. 
+                self.invcalib[ch] = lambda val: 2*val -228.2 + 80.0 - 120.
+                self.physlims[ch] = self.invcalib[ch]( np.array( [ np.amin(xdat), np.amax(xdat) ] ) ) 
+                self.voltlims[ch] = np.array([2.0, 8.0])
+                
+            elif ch == 'motpow':
+                ### IN    :  Isat/beam at atoms
+                ### CALIB :  Power measured by MOT TA monitor
+                w0 = 0.86  # beam waist
+                ta = 1.682 # power lost to TA sidebands
+                op = 1.37  # power loss in MOT optics
+                self.cnvcalib[ch] = lambda val: op*ta*6*val*5.1*(3.14*w0*w0)/2.
+                self.invcalib[ch] = lambda val: 2*val/op/ta/6/5.1/(3.14*w0*w0) 
+                self.physlims[ch] = self.invcalib[ch]( np.array( [ np.amin(xdat), np.amax(xdat) ] ) ) 
+                self.voltlims[ch] = np.array([0.1, 10.])
+
+            elif ch == 'trappow' or ch == 'reppow':
+                ### IN    :  power injected to TA
+                ### CALIB :  same as IN
+                self.cnvcalib[ch] = lambda val: val
+                self.invcalib[ch] = lambda val: val
+                self.physlims[ch] = self.invcalib[ch]( np.array( [ np.amin(xdat), np.amax(xdat) ] ) ) 
+                self.voltlims[ch] = np.array([0., 10.])
+                
+
+            elif ch == 'bfield':
+                ### IN    :  current measured on power supply
+                ### CALIB :  same as IN
+                self.cnvcalib[ch] = lambda val: val
+                self.invcalib[ch] = lambda val: val
+                self.physlims[ch] = self.invcalib[ch]( np.array( [ np.amin(xdat), np.amax(xdat) ] ) ) 
+                self.voltlims[ch] = np.array([0., 8.2])
+                
+            elif ch == 'uvdet':
+                ### IN    :  UV detuning in MHz
+                ### CALIB :  Double-pass AOM frequency
+                self.cnvcalib[ch] = lambda val: (val + 130.17)/2.0
+                self.invcalib[ch] = lambda val: val*2.0 - 130.17
+                self.physlims[ch] = self.invcalib[ch]( np.array( [ np.amin(xdat), np.amax(xdat) ] ) ) 
+                self.voltlims[ch] = np.array([2.744, 4.744])
+                
+            elif ch == 'uvpow':
+                ### IN    :  power measured after 75 um pinhole
+                ### CALIB :  same as IN
+                self.cnvcalib[ch] = lambda val: val
+                self.invcalib[ch] = lambda val: val
+                self.physlims[ch] = self.invcalib[ch]( np.array( [ np.amin(xdat), np.amax(xdat) ] ) ) 
+                self.voltlims[ch] = np.array([0., 7.0])
+        
+            elif ch == 'uv1freq':
+                ### IN    :  Frequency of uvaom1 in MHz
+                ### CALIB :  same as IN
+                self.cnvcalib[ch] = lambda val: val
+                self.invcalib[ch] = lambda val: val
+                self.physlims[ch] = self.invcalib[ch]( np.array( [ np.amin(xdat), np.amax(xdat) ] ) ) 
+                self.voltlims[ch] = np.array([0., 10.0])
+
+            elif ch == 'analogimg':
+                ### IN    :  Frequency of offset lock beat signal MHz
+                ### CALIB :  same as IN
+                self.cnvcalib[ch] = lambda val: val
+                self.invcalib[ch] = lambda val: val
+                self.physlims[ch] = self.invcalib[ch]( np.array( [ np.amin(xdat), np.amax(xdat) ] ) ) 
+                self.voltlims[ch] = np.array([0., 10.0])
+                
+            elif ch == 'lcr1' or ch == 'lcr2' or ch == 'lcr3':
+                ### IN    :  Lattice ratio:  1=lattice  0=dimple
+                ### CALIB :  same as IN
+                self.cnvcalib[ch] = lambda val: val
+                self.invcalib[ch] = lambda val: val
+                self.physlims[ch] = self.invcalib[ch]( np.array( [ np.amin(xdat), np.amax(xdat) ] ) ) 
+                self.voltlims[ch] = np.array([0., 10.0])
+                
+            else:
+                self.cnvcalib[ch] = lambda val:val
+                self.invcalib[ch] = lambda val:val
+                self.physlims[ch] = None
+                self.voltlims[ch] = None
+             
+             
+        
+        ### Channels that are NOT associated with calibration files are 
+        ### defined below 
+
+        chs = ['uvpow2', 'shunt', 'ipganalog', 'rfmod'] 
+        for ch in chs:
+            self.cnvcalib[ch] = lambda val: val
+            self.invcalib[ch] = lambda val: val
+            self.fs[ch] = lambda x: x 
+            self.gs[ch] = lambda x: x
+            self.physlims[ch] = np.array([0., 10.])
+            self.voltlims[ch] = np.array([0., 10.])
+        
+        
+        latticechs = ['ir1pow', 'ir2pow', 'ir3pow','greenpow1', 'greenpow2', 'greenpow3' ]
+        for ch in latticechs:
+            ### CALIB : power in mW 
+            ### FS : PD voltag
+            l = lattice_ch( ch, w0d[ch], m1d[ch], V0d[ch], ErMaxd[ch], VMaxd[ch])
+            self.cnvcalib[ch] = l.cnvcalib
+            self.fs[ch] = l.f
+            self.invcalib[ch] = l.invcalib
+            self.gs[ch] = l.g
+            self.physlims[ch] = l.physlims()
+            self.voltlims[ch] = l.voltlims()
+            
+        ### ODTPOW
+        o = odtpow_ch() 
+        ch = 'odtpow'
+        self.cnvcalib[ch] = np.vectorize(o.cnvcalib)
+        self.fs[ch] = o.f
+        self.invcalib[ch] = np.vectorize(o.invcalib)
+        self.gs[ch] = o.g
+        self.physlims[ch] = o.physlims()
+        self.voltlims[ch] = o.voltlims()    
+
+        
+         
 
     def plot(self):
-        dats = glob.glob('L:/software/apparatus3/convert/data/*.dat')
+        dats = glob.glob(lab + 'software/apparatus3/convert/data/*.dat')
+        
+        plotdat = raw_input("Do you wish to plot calibrations in .dat files? (y/n)")
+        
+        
+        datchs = []
         for d in dats:
             ch =  os.path.splitext( os.path.split(d)[1] )[0]
+            datchs.append(ch)
 
             table = np.loadtxt(d, usecols  = (1,0))
             xdat = table[:,0]
             ydat = table[:,1]
-            plt.plot( xdat, ydat, 'o')
+           
+            
+            print "-------- %s --------" % ch 
+            print "physical limits = ", self.physlims[ch]
+            print "voltage  limits = ", self.voltlims[ch]
+            
+            if plotdat == 'y':
+                
+                plt.plot( xdat, ydat, 'o')
 
-            xvals = np.union1d ( np.linspace( np.amin(xdat), np.amax(xdat) , 20 ), xdat )
-            try:
-                plt.plot( xvals, self.fs[ch](xvals), '-')
-            except ValueError as e:
-                print "Error in producing interpolation data plot for ch = %s" % ch
-                #for val in xvals:
-                #  print val
-                #  print " f(%f) = %f "%  (val, self.fs[ch](val))
-                print xvals
-                print xdat
-                print e
-            plt.legend([ch,'interpolation'], loc='best')
-            plt.show()
-
-
-
-    def check( self, ch , ins, outs ):
+                xvals = np.union1d ( np.linspace( np.amin(xdat), np.amax(xdat) , 20 ), xdat )
+                try:
+                    plt.plot( xvals, self.fs[ch](xvals), '-')
+                except ValueError as e:
+                    print "Error in producing interpolation data plot for ch = %s" % ch
+                    print xvals
+                    print xdat
+                    print e
+                plt.legend([ch,'interpolation'], loc='best')
+                plt.show()
+                
+        plotdat = raw_input("Do you wish to plot conversions for channels NOT in .dat files? (y/n)")
         
-        insa  = np.asarray(ins[0])
-        outsa = np.asarray(outs[0])
-         
-        outof_bounds_in = (insa < ins[1]).any() or (insa> ins[2]).any()
-        outof_bounds_out = (outsa < outs[1]).any() or (outsa > outs[2]).any()
+    
         
-        if outof_bounds_in.any():
-            msg = "Desired value is out of specified range."
-            msg = msg +  "\t%s  = %f   :  MIN=%f , MAX=%f" % (ch, ins[0], ins[1], ins[2] )
-            print msg
-            errormsg.box( "CONVERSION", msg)
-            exit(1)
-        if outof_bounds_out.any():
-            msg = "Output is out of specified range."
-            msg = msg + "\t%s  = %f   :  MIN=%f , MAX=%f" % (ch, outs[0], outs[1], outs[2] )
-            print msg
-            errormsg.box( "CONVERSION", msg)
-            exit(1)
-        return outs[0]
+        for ch in self.fs.keys():
+            if ch not in datchs and ( 'ir' in ch or 'gr' in ch or 'odt' in ch):
+                print "-------- %s --------" % ch 
+                print "physical limits = ", self.physlims[ch]
+                print "voltage  limits = ", self.voltlims[ch]
+                
+                voltvals = np.linspace( self.voltlims[ch][0] , self.voltlims[ch][1] , 40 )
+                physvals = np.linspace( self.physlims[ch][0] , self.physlims[ch][1] , 40 )
+                
+                if plotdat == 'y':
 
-    def cnv(self, ch, val):
-        if ch == 'trapdet':
-            ### IN    :  MHz detuning at atoms
-            ### CALIB :  Double-pass AOM frequency
-            ### OUT   :  Volts
-            out =  self.fs[ch]( (val + 120. + 120.) / 2. )
-            return self.check( ch, (val, -200.0, 200.), (out, 2.0, 8.0))
+                    #~ try:
 
-        if ch == 'repdet':
-            ### IN    :  MHz detuning at atoms
-            ### CALIB :  Double-pass AOM frequency
-            ### OUT   :  Volts
-            out =  self.fs[ch]( (val + 228.2 -80.0 + 120.) / 2. )
-            return self.check( ch, (val, -200.0, 200.), (out, 2.0, 8.0))
+                        
+                    plt.plot( self.cnv(ch,physvals), physvals,  '--', lw=2)
+                    plt.plot( voltvals, self.inv(ch,voltvals), '-')
+                        
+                    #~ except ValueError as e:
+                        #~ print "Error in producing conversion plot for ch = %s" % ch
+                        #~ print "voltvals = ", voltvals
+                        #~ print "physvals = ", physvals
+                        #~ print xdat
+                        #~ print e
+                        
+                    plt.legend([ch+'_cnv', ch+'_inv'], loc='best')
+                    plt.show()
+                
+                
 
-        if ch == 'motpow':
-            ### IN    :  Isat/beam at atoms
-            ### CALIB :  Power measured by MOT TA monitor
-            ### OUT   :  Volts
-            w0 = 0.86  # beam waist
-            ta = 1.682 # power lost to TA sidebands
-            op = 1.37  # power loss in MOT optics
-            calib = op*ta*6*val*5.1*(3.14*w0*w0)/2.
-            out = self.fs[ch]( calib )
-            return self.check( ch, (val, 0.0, 1.14), (out, 0.1, 10))
 
-        if ch == 'trappow':
-            ### IN    :  power injected to TA
-            ### CALIB :  same as IN
-            ### OUT   :  volts
-            out = self.fs[ch]( val )
-            return self.check( ch, (val, 0.0, 15.9), (out, 0., 10))
-            
-        if ch == 'reppow':
-            ### IN    :  power injected to TA
-            ### CALIB :  same as IN
-            ### OUT   :  volts
-            out = self.fs[ch]( val )
-            return self.check( ch, (val, 0.0,13.5), (out, 0., 10))
-            
-        if ch == 'bfield':
-            ### IN    :  current measured on power supply
-            ### CALIB :  same as IN
-            ### OUT   :  volts
-            out = self.fs[ch]( val )
-            return self.check( ch, (val, 0.0,120.), (out, 0., 8.2))
+    def check( self, ch , phys, volt ):
         
-        if ch == 'uvdet':
-            ### IN    :  UV detuning in MHz
-            ### CALIB :  Double-pass AOM frequency
-            ### OUT   :  Volts
-            out = self.fs[ch]( (val + 130.17 )/2.0  )
-            return self.check( ch, (val, -8.,4.0), (out, 2.744, 4.744))
+        physa = np.asarray(phys)
+        volta = np.asarray(volt)
+        
+        #Give a little room for rounding errors 
+        #and some wiggle room for the physical limits
+        physMin = self.physlims[ch][0] - 0.000001
+        physMax = self.physlims[ch][1] + 0.000001
+        
+        
+        physMin = physMin - (physMax-physMin)*0.01
+        physMax = physMax + (physMax-physMin)*0.01
+        
+
+        voltMin = self.voltlims[ch][0] - 0.000001
+        voltMax = self.voltlims[ch][1] + 0.000001
+        
+        #print type(val)
+        #print type(out)
+        
+        below_bound_phys = physa < physMin
+        above_bound_phys = physa > physMax
+        
+        below_bound_volt = volta < voltMin
+        above_bound_volt = volta > voltMax
+        
+        if below_bound_phys.any() or above_bound_phys.any():
+            print "phys =", physa
+            out_of_bounds_phys = None
             
-        if ch == 'uvpow':
-            ### IN    :  power measured after 75 um pinhole
-            ### CALIB :  same as IN
-            ### OUT   :  volts
-            out = self.fs[ch]( val )
-            return self.check( ch, (val, 0.0,20.0), (out, 0., 7.0))
+            print "Error in conversion of %s with length = %d" % ( type(physa), len(physa) )
+              
+            msg = "The following values are outside the physical limits [%f,%f]: " % (physMin, physMax)
             
-        if ch == 'uvpow2':
-            ### IN    :  volts
-            ### CALIB :  None
-            ### OUT   :  volts
-            out = val
-            return self.check( ch, (val, 0.0,8.0), (out, 0., 8.0))
+            if physa.ndim < 1:
+                out_of_bounds_phys = physa
+                msg = msg + '\n\t' + str(out_of_bounds_phys) 
+            else:
+                out_of_bounds_phys  =  np.concatenate( (physa[ np.where( physa < physMin ) ],physa[np.where( physa > physMax)] ))
+                msg = msg + '\n\t' + str(out_of_bounds_phys) 
             
-        if ch == 'uv1freq':
-            ### IN    :  Frequency of uvaom1 in MHz
-            ### CALIB :  same as IN
-            ### OUT   :  volts
-            out = self.fs[ch]( val )
-            return self.check( ch, (val, 70.0,153.0), (out, 0., 10.0))
+            print msg 
+              
+            errormsg.box('CONVERSION CHECK:: ' + ch, msg)
+
+            raise ValueError("A value is outside the physics range.  ch = %s" % ch)
+
+        if below_bound_volt.any() or above_bound_volt.any():
+
             
-        if ch == 'shunt':
-            ### IN    :  volts
-            ### CALIB :  None
-            ### OUT   :  volts
-            out = val
-            return self.check( ch, (val, 0.0,10.0), (out, 0., 10.0))
+            out_of_bounds_volt = None
+              
+            msg = "The following values are outside the voltage limits [%f,%f]: " % (voltMin, voltMax)
+
+            if volta.ndim < 1:
+                out_of_bounds_volt = volta
+                msg = msg + '\n\t' + str(out_of_bounds_volt) 
+            else:
+                out_of_bounds_volt  =  np.concatenate( (volta[ np.where( volta < voltMin ) ], volta[np.where( volta > voltMax)]))
+                msg = msg + '\n\t' + str(out_of_bounds_volt) 
             
-        if ch == 'ipganalog':
-            ### IN    :  volts
-            ### CALIB :  None
-            ### OUT   :  volts
-            out = val
-            return self.check( ch, (val, 0.0,10.0), (out, 0., 10.0))
-            
-        if ch == 'rfmod':
-            ### IN    :  volts
-            ### CALIB :  None
-            ### OUT   :  volts
-            out = val
-            return self.check( ch, (val, 0.0,10.0), (out, -1., 1.0))
-            
-            
-        if ch == 'analogimg':
-            ### IN    :  Frequency of offset lock beat signal MHz
-            ### CALIB :  same as IN
-            ### OUT   :  volts
-            out = self.fs[ch]( val )
-            return self.check( ch, (val, 300.,1500.0), (out, 0., 10.0))
-            
-            
-            
-        if ch == 'lcr1' or ch == 'lcr2' or ch == 'lcr3':
-            ### IN    :  Lattice ratio:  1=lattice  0=dimple
-            ### CALIB :  same as IN
-            ### OUT   :  volts
-            out = self.fs[ch]( val )
-            return self.check( ch, (val, 0.0,1.0), (out, 0., 10.0))
-            
-        if ch == 'ir1pow' or ch == 'ir2pow' or ch == 'ir3pow':
-            ### IN    :  Lattice depth in Er
-            ### CALIB :  None (using PD slope)
-            ### OUT   :  volts         
-            #power in mW
-            p = 1000. * val / 4. / 38709. * 1.4 * w0d[ch] * w0d[ch] 
-            out = m1d[ch] * p + V0d[ch] 
-            return self.check( ch, (val, 0.0, ErMaxd[ch]), (out, 0., 10.0))
-            
-            
-        if ch == 'greenpow1' or ch == 'greenpow2' or ch == 'greenpow3':
-            ### IN    :  Lattice depth in Er
-            ### CALIB :  None (using PD slope)
-            ### OUT   :  volts
-            #power in mW
-            p = 1000. * val / 1. / 39461. * 1.4 * w0d[ch] * w0d[ch] 
-            out = m1d[ch] * p + V0d[ch] 
-            return self.check( ch, (val, 0.0, ErMaxd[ch]), (out, 0., VMaxd[ch]))
-            
-        errormsg.box('CONVERSION : ' + ch, 'No conversion defined for this channel')
-        raise ValueError("No conversion has been defined for channel = %s" % ch )
-        return None
+            print msg 
+              
+            errormsg.box('CONVERSION CHECK :: ' + ch, msg)
+
+            raise ValueError("A value is outside the voltage range. ch = %s" % ch)
+                
+                
+        return (volt, phys)
+
+
 
 
 
@@ -290,31 +573,14 @@ class convert:
 
 dll = convert()
 
-
-#datfile =  'L:/software/apparatus3/convert/data/' + ch + '.dat'
-
 def cnv( ch, val ):
     global dll
     return dll.cnv(ch, val)
-#   datfile =  'L:/software/apparatus3/convert/data/' + ch + '.dat'
-#   table = np.loadtxt(datfile, usecols  = (1,0))
-#   try:
-#      f = interp1d( table[:,0], table[:,1], kind='cubic')
-#   except ValueError as e:
-#      print e
-#      print "Could not define interpolation function"
-#      f = lambda x: x
-#   try:
-#      out = f(val)
-#   except ValueError as e:
-#      out = val
-#      print e
-#      print "Error when trying to interpolate from:"
-#      print "\t",datfile
-#      print "\tTable range is  (%f,%f)" % (np.amin(table[:,0]), np.amax(table[:,0]) )
-#      #print "\tData xrange is  (%f,%f)" % (np.amin(val[:,1]), np.amax(val[:,1]))
-#      print val
-#   return out
+    
+def inv( ch, val ):
+    global dll
+    return dll.inv(ch, val)
+
 
 
 
@@ -385,6 +651,14 @@ class calc:
         dat = [out[0] for out in dat]
         dat = np.concatenate( dat, axis=0)
         return interpdat( datfile, colX, colY, dat)
+    
+    def cnvInversion( self, ch):
+        """A basic channel can be converted by using its inverse conversion function"""
+        dat = self.wfms[ch]
+        dat = [out[0] for out in dat]
+        dat = np.concatenate( dat, axis=0)
+        return (dat[:,0], dll.inv( ch, dat[:,1]))
+        
 
     def interpch( self, datfile, x, y, ch):
         return interpdat(datfile, x, y, np.transpose(np.vstack(self.calcwfms[ch])) )
@@ -405,7 +679,8 @@ class calc:
             """The table for the conversion from voltage to cpow is calculated
             using the odt.py module, inside the seq directory.  Type python odt.py
             The table is saved in physics/odtfcpow.dat"""
-            self.calcwfms[ch] = self.basicConversion('physics/odtfcpow.dat', 0, 1, 'odtpow')
+            #self.calcwfms[ch] = self.basicConversion('physics/odtfcpow.dat', 0, 1, 'odtpow')
+            self.calcwfms[ch] = self.cnvInversion( 'odtpow')
             return self.calcwfms[ch]
 
         elif ch == 'odtdepth(1uK)':
@@ -441,7 +716,8 @@ class calc:
 
         ### Calculate Bfield
         elif ch == 'bfield(Amp)':
-            self.calcwfms[ch] = self.basicConversion('physics/bfield.dat', 0, 1, 'bfield')
+            #self.calcwfms[ch] = self.basicConversion('physics/bfield.dat', 0, 1, 'bfield')
+            self.calcwfms[ch] = self.cnvInversion('bfield')
             return self.calcwfms[ch]
 
         elif ch == 'bfield(G)':
@@ -464,11 +740,35 @@ class calc:
             self.prereq('bfield(G)')
             self.calcwfms[ch] = scaleFactor(self.interpch( 'physics/arice.dat', 0, 1, 'bfield(G)' ), 1/100.)
             return self.calcwfms[ch]
-
-        ### Calculate lattice,dimple depth and frequencies
+            
+        
+        ### Calculate depth of IR and green beams
+        elif ch == 'ir1(Er)':
+            self.calcwfms[ch] = self.cnvInversion( 'ir1pow')
+            return self.calcwfms[ch]
+        elif ch == 'ir2(Er)':
+            self.calcwfms[ch] = self.cnvInversion( 'ir2pow')
+            return self.calcwfms[ch]
+        elif ch == 'ir3(Er)':
+            self.calcwfms[ch] = self.cnvInversion( 'ir3pow')
+            return self.calcwfms[ch]
+        
+        elif ch == 'gr1(Er)':
+            self.calcwfms[ch] = self.cnvInversion( 'greenpow1')
+            return self.calcwfms[ch]
+        elif ch == 'gr2(Er)':
+            self.calcwfms[ch] = self.cnvInversion( 'greenpow2')
+            return self.calcwfms[ch]
+        elif ch == 'gr3(Er)':
+            self.calcwfms[ch] = self.cnvInversion( 'greenpow3')
+            return self.calcwfms[ch]
+        
         ### These start getting more complicated because they have two or more prerequisites
-        #elif ch == 'latticeV0(Er)':
-
+        
+        ### Calculate lattice depth, frequencies
+        
+        ### Calculate 'confinement' 
+        
 
         ### Calculate on-site interactions
 

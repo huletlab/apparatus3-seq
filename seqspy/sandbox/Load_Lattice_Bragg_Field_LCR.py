@@ -26,6 +26,8 @@ import math
  
 import seq, wfm, gen, cnc, odt, andor, highfield_uvmot, manta, lattice
 
+print wfm.__file__
+
 #REPORT
 report=gen.getreport()
 
@@ -305,7 +307,7 @@ if lbf.inlattice < separate_ramps_cuttof:
 	odtpow = odt.odt_wave('odtpow', cpowend, ir_ss)
 	odtpow.appendhold( imagetime + lbf.odtdelay )
 	if lbf.odtzero == 1:
-		odtpow.odt_linear( cpowend, 0.0,  lbf.odtrampdt)
+		odtpow.linear( None,  lbf.odtrampdt, volt=0.0)
 
 	waveforms = [ir1,ir2,ir3,lcr1,lcr2,lcr3,gr1,gr2,gr3,bfield, odtpow]
 
@@ -362,7 +364,7 @@ else:
 	odtpow = odt.odt_wave('odtpow', cpowend, ir_ss)
 	odtpow.appendhold( lbf.inlattice - (-lbf.odtdelay) - start2time)
 	if lbf.odtzero  == 1:
-		odtpow.odt_linear( cpowend, 0.0, lbf.odtrampdt)
+		odtpow.linear( None, lbf.odtrampdt, volt=0.0)
 	odtpow.extend( lbf.inlattice - start2time)
 	
 	ir1  = wfm.wave('ir1pow', lbf.ir1pow2, ir_ss)

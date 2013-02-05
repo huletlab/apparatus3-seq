@@ -1,4 +1,4 @@
-import os, sys, seqconf, gen, math, numpy, hashlib, time
+import os, sys, seqconf, gen, math, numpy, hashlib, time, physics, errormsg
 
 from convert import cnv
 
@@ -7,6 +7,7 @@ report=gen.getreport()
 def rawcalibdat(ch):
     with open( os.path.join([path for path in sys.path if 'convert' in path][0], os.path.join('data',ch+'.dat')) ) as f:
         return f.read()
+        
 
 
 class wave:
@@ -21,15 +22,24 @@ class wave:
 		with a voltage instead of a physical quantity"""
 	def __init__(self,name,val,stepsize,N=1,volt=-11):
 		"""Initialize the waveform  """
+		print "Using physics conversion wfm.py"
 		self.idnum = time.time()*100
 		self.name = name
+		
+		self.lastPhys = None
+		
 		if volt != -11:
 			val=volt
 		else:
-			val=cnv(self.name,val)
+			self.lastPhys = val
+			val=physics.cnv(self.name,val)
+			
 				
 		self.y= numpy.array(N*[val])
 		self.ss=stepsize
+		
+		
+		
 		#print ("...Initialized waveform %s, idnum=%s" % ( self.name, self.wfm_id()))
 		
 	def wfm_id(self):
@@ -81,6 +91,7 @@ class wave:
 		if self.dt() < dt:
 			print "----> Chop error, cannot remove samples to make wfm longer!!"
 			return
+		self.lastPhys = None
 		dt0 = self.dt()
 		self.y = self.y[: math.floor(dt/self.ss)+1+extra]
 		dtf = self.dt()
@@ -134,23 +145,34 @@ class wave:
 		### for the magnetic field which has a mostly linear relationship between
 		### set voltage and current in the coils.  But don't use this as an example
 		### for other things.   
-		vf=cnv(self.name,vf)
+		self.lastPhys = vf
+		vf=physics.cnv(self.name,vf)
+		
 		v0=self.last()
 		if dt == 0.0:
 			self.y[ self.y.size -1] = vf
 			return
 		else:
 			N = int(math.floor(dt/self.ss))
-			ramp=[]
-			ramphash = seqconf.ramps_dir() + 'sinhRise_' \
-			           + hashlib.md5(str(self.name)+str(vf)+str(v0)+str(N)+str(dt)+str(tau)).hexdigest()
-			if not os.path.exists(ramphash):
+			
+			hashbase = ''
+			hashbase = hashbase + self.name
+			hashbase = hashbase + '%.8f' % vf
+			hashbase = hashbase + '%.8f' % v0
+			hashbase = hashbase + '%.8f' % N
+			hashbase = hashbase + '%.8f' % dt
+			hashbase = hashbase + '%.8f' % tau
+			ramphash = seqconf.ramps_dir() + 'sinhRise_' + hashlib.md5(hashbase).hexdigest()
+			
+			if not os.path.exists(ramphash) or True:
 				print '...Making new sinhRise ramp'
-				for i in range(N):
-					x=dt*(i+1)/N
-					f=v0 + (vf-v0)*(x/tau+(x/tau)**3.0/6.0)/(dt/tau+(dt/tau)**3.0/6.0)
-					ramp=numpy.append(ramp, [f])
-				ramp.tofile(ramphash,sep=',',format="%.4f")
+				
+				x = numpy.linspace( dt/N, dt, N)
+				ramp = v0 + (vf-v0)*(x/tau+(x/tau)**3.0/6.0)/(dt/tau+(dt/tau)**3.0/6.0)
+				
+				#ramp.tofile(ramphash,sep=',',format="%.4f")
+				
+				
 			else:
 				print '...Recycling previously calculated sinhRise ramp'
 				ramp =  numpy.fromfile(ramphash,sep=',')
@@ -159,7 +181,139 @@ class wave:
 		return
 
 
+	def linear(self,vf,dt,volt=-11):
+		"""Adds linear ramp to waveform, starts at current last 
+			value and goes to 'vf' in 'dt' 
+			CAREFUL: This is linear in voltage, not in phys"""
+		#~ if 'ir' in self.name  and 'pow' in self.name:
+			#~ print "%s LINEAR: Conversion flag = %d, vf_in=%f" % (self.name, volt,vf)
+			
+		if volt >= -10.0 and volt <= 10.0:
+			self.lastPhys = None
+			vf=volt
+		elif volt == -11:
+			self.lastPhys = vf
+			vf=physics.cnv(self.name,vf)
+			
+		#~ if 'ir' in self.name  and 'pow' in self.name:
+			#~ print "%s  LINEAR: Conversion flag = %d, vf_out=%f" % (self.name, volt,vf)
+			
+		v0 = round(self.last(),4)
+		if dt == 0.0:
+			self.y[ self.y.size -1] = vf
+			return
+		else:
+			N = int(math.floor(dt/self.ss))
+			x = numpy.linspace( 1, N, N)
+			ramp =   numpy.around(v0 + (vf-v0)*x/N, decimals=4)
+			self.y = numpy.append( self.y, ramp )
+		return
+
+
+
+	def insertlin_cnv(self,vf,dt,start):
+		"""Inserts a linear ramp (vf,dt) at a time 'start' referenced from 
+			the end of the current sate of the wfm.  
+			
+			start > 0 : appends a hold before doing the ramp
+			"""
+		self.lastPhys = vf
+		vf=physics.cnv(self.name,vf)
 		
+		if start>0:
+			self.apppendhold(start-self.ss)
+			self.y = numpy.append(self.y,[vf])
+			return
+		elif -start > self.dt():
+			print("Cannot insert ramp before the beggiging of the waveform")
+			exit(1)
+		elif dt > -start:
+			print("Ramp is too long for inserting")
+			exit(1)
+		Nstart=int(math.floor(-start/self.ss))
+		if dt==0. :
+			N=0
+			self.y[self.y.size -1 - Nstart]=vf
+		else:
+			N=int(math.floor(dt/self.ss))
+			v0 = self.y[self.y.size -1 - Nstart]
+			for i in range(N):
+				self.y[self.y.size - Nstart + i] = v0 + (vf-v0)*(i+1)/N				
+		for i in range( Nstart -N):
+			self.y[self.y.size - Nstart + N + i] = vf
+		return
+
+
+	def linear_phys(self,vf,dt):
+		"""Adds linear ramp to waveform, starts at current last 
+			value and goes to 'vf' in 'dt'"""
+		
+		if self.lastPhys == None:
+			msg = "The last physics value is not available\n for this waveform."
+			msg = msg + "\n\nProgram will be stopped."
+			errormsg.box('wfm.linear_phys :: ' + self.name, msg)
+			exit(1)
+		
+		print "...linear_phys last physical value is = %f" % self.lastPhys
+		
+		v0 = self.lastPhys
+		
+		#One could also obtain v0 via conversion, but it is not recommended		
+		#v0=physics.cnv(self.name+"Phys",self.last())
+		
+		if dt == 0.0:
+			self.y[ self.y.size -1] = physics.cnv(self.name,vf)
+			return
+
+			
+		N = int(math.floor(dt/self.ss))
+
+		hashbase = ''
+		hashbase = hashbase + self.name
+		hashbase = hashbase + '%.8f' % vf
+		hashbase = hashbase + '%.8f' % v0
+		hashbase = hashbase + '%.8f' % N
+		hashbase = hashbase + '%.8f' % dt
+		hashbase = hashbase + rawcalibdat( self.name ) 
+		
+		ramphash = seqconf.ramps_dir() + 'linearPhys_' \
+			           + hashlib.md5( hashbase ).hexdigest()
+	
+		if not os.path.exists(ramphash) or True:
+				print '...Making new linearPhys ramp for ' + self.name
+				
+				x = numpy.linspace( v0 + (vf-v0)/N , vf , N )
+				ramp = physics.cnv( self.name, x )
+				
+				#yramp= numpy.array([cnv(self.name,v0 + 1.0*(vf-v0)*(i+1)/N) for i in range(N)])
+				
+				#if ( numpy.absolute( yramp - ramp ) > 0.0001 ).any():
+				#	print "NOT EQUAL!"
+				#else:
+				#	print "EQUAL!"
+					
+					
+				#ramp.tofile(ramphash,sep=',',format="%.4f")
+				
+				
+		else:
+				print '...Recycling previously calculated linearPhys ramp for '  + self.name
+				ramp =  numpy.fromfile(ramphash,sep=',')	
+
+		self.y=numpy.append(self.y, ramp)
+		self.lastPhys = vf
+		
+		return
+
+
+
+
+
+
+
+	####
+	####
+	####
 	#### FROM HERE ON RAMPS ARE NOT USED OR OBSOLETE ###
 		
 	def lineardither(self,vf,dt,ramps):
@@ -203,6 +357,7 @@ class wave:
 		else:
 			N=int(round(dt/self.ss))
 			print 'nsteps = ' + str(N)
+			print "Using cnv in Exponential (for loop)"
 			for xi in range(N-1):
 				t = (xi+1)*self.ss
 				phys = y0 + (yf-y0)*(1-math.exp(-t/tau))/(1-math.exp(-dt/tau))
@@ -217,6 +372,7 @@ class wave:
 		else:
 			v0 = self.last()
 			N=int(math.floor(dt/self.ss))
+			print "Using cnv in Adiabatic Ramp Down (for loop)"
 			for xi in range(N):
 				t = (xi+1)*self.ss
 				phys = v0 * math.pow( 1 + t/tau ,-2)
@@ -253,100 +409,6 @@ class wave:
 				x=dt*(i+1)/N
 				f=v0 + (vf-v0)*(x/tau-(x/tau)**3.0/6.0)/(dt/tau-(dt/tau)**3.0/6.0)
 				self.y=numpy.append(self.y, [f])
-		return
-		
-	def linear(self,vf,dt,volt=-11):
-		"""Adds linear ramp to waveform, starts at current last 
-			value and goes to 'vf' in 'dt' 
-			CAREFUL: This is linear in voltage, not in phys"""
-		#~ if 'ir' in self.name  and 'pow' in self.name:
-			#~ print "%s LINEAR: Conversion flag = %d, vf_in=%f" % (self.name, volt,vf)
-			
-		if volt >= -10.0 and volt <= 10.0:
-			vf=volt
-		elif volt == -11:
-			vf=cnv(self.name,vf)
-			
-		#~ if 'ir' in self.name  and 'pow' in self.name:
-			#~ print "%s  LINEAR: Conversion flag = %d, vf_out=%f" % (self.name, volt,vf)
-			
-		v0 = round(self.last(),4)
-		if dt == 0.0:
-			self.y[ self.y.size -1] = vf
-			return
-		else:
-			N = int(math.floor(dt/self.ss))
-			for i in range(N):
-				self.y=numpy.append(self.y, [round(v0 + (vf-v0)*(i+1)/N,4)])
-		return
-		
-	def linear_phys(self,vf,dt):
-		"""Adds linear ramp to waveform, starts at current last 
-			value and goes to 'vf' in 'dt'"""
-			
-		v0=cnv(self.name+"Phys",self.last())
-		
-		if dt == 0.0:
-			self.y[ self.y.size -1] = cnv(self.name,vf)
-			return
-			
-		N = int(math.floor(dt/self.ss))
-
-		hashbase = ''
-		hashbase = hashbase + self.name
-		hashbase = hashbase + '%.8f' % vf
-		hashbase = hashbase + '%.8f' % v0
-		hashbase = hashbase + '%.8f' % N
-		hashbase = hashbase + '%.8f' % dt
-		hashbase = hashbase + rawcalibdat( self.name ) 
-		
-		ramphash = seqconf.ramps_dir() + 'linearPhys_' \
-			           + hashlib.md5( hashbase ).hexdigest()
-	
-		if not os.path.exists(ramphash):
-				print '...Making new linearPhys ramp for ' + self.name
-				
-				ramp= numpy.array([cnv(self.name,v0 + 1.0*(vf-v0)*(i+1)/N) for i in range(N)])
-				ramp.tofile(ramphash,sep=',',format="%.4f")
-		else:
-				print '...Recycling previously calculated linearPhys ramp for '  + self.name
-				ramp =  numpy.fromfile(ramphash,sep=',')	
-
-		self.y=numpy.append(self.y, ramp)
-		
-		return
-
-	def insertlin_cnv(self,vf,dt,start):
-		"""Inserts a linear ramp (vf,dt) at a time 'start' referenced from 
-			the end of the current sate of the wfm.  
-			
-			start > 0 : appends a hold before doing the ramp
-			"""
-		vf=cnv(self.name,vf)
-		if self.name == 'ir1pow':
-			print cnv(self.name,vf)
-			print "INSERTLIN_CNV: Conversion result:  vf_out=%f" % (vf)		
-		if start>0:
-			self.apppendhold(start-self.ss)
-			self.y = numpy.append(self.y,[vf])
-			return
-		elif -start > self.dt():
-			print("Cannot insert ramp before the beggiging of the waveform")
-			exit(1)
-		elif dt > -start:
-			print("Ramp is too long for inserting")
-			exit(1)
-		Nstart=int(math.floor(-start/self.ss))
-		if dt==0. :
-			N=0
-			self.y[self.y.size -1 - Nstart]=vf
-		else:
-			N=int(math.floor(dt/self.ss))
-			v0 = self.y[self.y.size -1 - Nstart]
-			for i in range(N):
-				self.y[self.y.size - Nstart + i] = v0 + (vf-v0)*(i+1)/N
-		for i in range( Nstart -N):
-			self.y[self.y.size - Nstart + N + i] = vf
 		return
 		
 		
