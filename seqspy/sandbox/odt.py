@@ -425,10 +425,10 @@ def crossbeam_dimple_evap(s, toENDBFIELD):
 		w = lattice.lattice_wave(ch, 0., EVAP.evapss)
 		if 'ir' in ch:
 			w.appendhold( DIMPLE.ir_t0 )
-			w.tanhRise( DIMPLE.ir_pow, DIMPLE.ir_t0, DIMPLE.ir_tau, DIMPLE.ir_shift)
+			w.tanhRise( DIMPLE.ir_pow, DIMPLE.ir_dt, DIMPLE.ir_tau, DIMPLE.ir_shift)
 		elif 'green' in ch:
 			w.appendhold( DIMPLE.gr_t0 )
-			w.tanhRise( DIMPLE.gr_pow, DIMPLE.gr_t0, DIMPLE.gr_tau, DIMPLE.gr_shift)
+			w.tanhRise( DIMPLE.gr_pow, DIMPLE.gr_dt, DIMPLE.gr_tau, DIMPLE.gr_shift)
 		else:
 			print "Error ramping up IR,GR beams in crossbeam_dimple_evap"
 		return w
@@ -456,10 +456,11 @@ def crossbeam_dimple_evap(s, toENDBFIELD):
 	
 	s.analogwfm_add(EVAP.evapss,[odtpow,ipganalog, bfield,ir1,ir2,ir3,gr1,gr2,gr3,lcr1,lcr2,lcr3])
 
+	extrafree = EVAP.free - EVAP.buffer - toENDBFIELD
 	
 	#Add quick jump to help go to final evaporation field
 	if ( EVAP.use_field_ramp == 1 and  EVAP.image > EVAP.fieldrampt0):
-		s.wait( EVAP.fieldrampt0 )
+		s.wait( EVAP.fieldrampt0 + extrafree )
 		s.wait(-25.0)
 		s.digichg('hfquick',1)
 		s.digichg('quick',1)
@@ -467,7 +468,7 @@ def crossbeam_dimple_evap(s, toENDBFIELD):
 		s.digichg('hfquick',0)
 		s.digichg('quick',0)
 		s.wait(-50.0)
-		s.wait(-EVAP.fieldrampt0)
+		s.wait(-EVAP.fieldrampt0 - extrafree)
 	
 	s.wait(EVAP.free - EVAP.buffer - toENDBFIELD)
 	s.wait(EVAP.image)
@@ -477,8 +478,8 @@ def crossbeam_dimple_evap(s, toENDBFIELD):
 	else:
 		s.wait( DIMPLE.image - EVAP.image)
 		s.stop_analog() 
-		trajectory = numpy.loadtxt( report['EVAP']['ramp'], delimiter=',')
-		cpowend = trajectory[ numpy.floor(DIMPLE.image/EVAP.evapss) ]
+		#trajectory = numpy.loadtxt( report['EVAP']['ramp'], delimiter=',')
+		#cpowend = trajectory[ numpy.floor(DIMPLE.image/EVAP.evapss) ]
 	
 	print "...Evap cpowend  = %f" % cpowend
 	

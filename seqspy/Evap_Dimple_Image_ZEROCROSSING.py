@@ -39,6 +39,14 @@ s=gen.initial(s)
 s.digichg('hfimg',1)
 s.digichg('odt7595',0)
 
+#Get hfimg ready
+s.digichg('hfimg',1)
+
+#If using analoghfimg get it ready
+if ANDOR.analoghfimg == 1:
+	s.digichg('analogimgttl',1)
+
+
 
 # Do CNC, UVMOT, and field ramps
 s, toENDBFIELD = highfield_uvmot.go_to_highfield(s)

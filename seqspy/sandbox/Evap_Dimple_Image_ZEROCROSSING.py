@@ -27,6 +27,7 @@ report=gen.getreport()
 #GET SECTION CONTENTS
 DIMPLE = gen.getsection('DIMPLE')
 EVAP = gen.getsection('EVAP')
+FB = gen.getsection('FESHBACH')
 ZC   = gen.getsection('ZEROCROSS')
 ANDOR= gen.getsection('ANDOR')
 
@@ -37,6 +38,14 @@ s=seq.sequence(stepsize)
 s=gen.initial(s)
 s.digichg('hfimg',1)
 s.digichg('odt7595',0)
+
+#Get hfimg ready
+s.digichg('hfimg',1)
+
+#If using analoghfimg get it ready
+if ANDOR.analoghfimg == 1:
+	s.digichg('analogimgttl',1)
+
 
 
 # Do CNC, UVMOT, and field ramps
@@ -59,13 +68,20 @@ else:
 
 
 #If ZC ramp needs to go up, then help it with a quick
-if ( EVAP.use_field_ramp != 1 or  EVAP.image < EVAP.fieldrampt0):
+if ( EVAP.use_field_ramp != 1 or  DIMPLE.image < EVAP.fieldrampt0):
     s.wait(-12.0)
-    s.digichg('quick2',1)
+    s.digichg('hfquick',1)
+    s.digichg('quick',1)
     s.wait(12.0)
+    
+    #for safety turn this back off a little later
+    s.wait(150.0)
+    s.digichg('hfquick',0)
+    s.digichg('quick',0)
+    s.wait(-150.0)
 
 
-fieldF = EVAP.fieldrampfinal if EVAP.image > EVAP.fieldrampt0 else FB.bias
+fieldF = EVAP.fieldrampfinal if DIMPLE.image > EVAP.fieldrampt0 else FB.bias
 bfield = wfm.wave('bfield', fieldF, EVAP.evapss)
 bfield.linear(ZC.zcbias, ZC.zcrampdt)
 bfield.appendhold(ZC.zcdt)

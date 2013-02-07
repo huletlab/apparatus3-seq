@@ -442,6 +442,10 @@ def crossbeam_dimple_evap(s, toENDBFIELD):
 	
 	#---Turn on TTLs
 	s.wait( DIMPLE.ir_t0 )
+	#---Prior to this turn on the interlock bypass
+	s.wait(-5.0)
+	s.digichg('latticeinterlockbypass', 1)
+	s.wait(5.0)
 	s.digichg( 'irttl1', DIMPLE.ir1)
 	s.digichg( 'irttl2', DIMPLE.ir2)
 	s.digichg( 'irttl3', DIMPLE.ir3)
