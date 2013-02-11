@@ -50,7 +50,7 @@ def  go_to_highfield(s):
 	bfield.linear(FB.bias,FB.rampdt)
 
 	#---Change shunt value from motV to hfV before going to highfield
-	shunt = wfm.wave('shunt', SHUNT.motV, ss)
+	shunt = wfm.wave('gradientfield', SHUNT.motV, ss)
 	shunt.extend(ENDUVMOT + FB.rampdelay + FB.rampbf + FB.feshbachdt + UV.extradt) 
 	shunt.linear(SHUNT.hfV, 0.0)	
 

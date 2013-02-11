@@ -1,4 +1,5 @@
 import numpy as np
+import numpy.ma as ma
 from scipy.interpolate import interp1d, UnivariateSpline
 import matplotlib.pyplot as plt
 
@@ -7,7 +8,6 @@ import glob
 import os
 import pprint
 
-import pwlinterpolate, errormsg
 
 
 if os.name == 'posix':
@@ -15,15 +15,13 @@ if os.name == 'posix':
 else:
     lab = 'L:/'
     
-
-
-
 import sys
 sys.path.append(lab + 'software/apparatus3/seq')
 sys.path.append(lab + 'software/apparatus3/seq/utilspy')
 
-sys.path.append(lab + 'software/apparatus3/seq/utilspy')
+physpath = lab + 'software/apparatus3/seq/physics/'
 
+import pwlinterpolate, errormsg
 
 
 import seqconf, gen
@@ -41,12 +39,48 @@ channel_list = [
                  'bfield(100G)', \
                  'ainns(100a0)', \
                  'arice(100a0)', \
-                 'gr1(Er)',\
-                 'gr2(Er)',\
-                 'gr3(Er)',\
-                 'ir1(Er)',\
-                 'ir2(Er)',\
-                 'ir3(Er)',\
+                 'gr1pow(Er)',\
+                 'gr2pow(Er)',\
+                 'gr3pow(Er)',\
+                 'ir1pow(Er)',\
+                 'ir2pow(Er)',\
+                 'ir3pow(Er)',\
+                 'gr1pow(100mW)',\
+                 'gr2pow(100mW)',\
+                 'gr3pow(100mW)',\
+                 'ir1pow(100mW)',\
+                 'ir2pow(100mW)',\
+                 'ir3pow(100mW)',\
+                 'lcr1(alpha)',\
+                 'lcr2(alpha)',\
+                 'lcr3(alpha)',\
+                 'lattice1V0(Er)',\
+                 'lattice2V0(Er)',\
+                 'lattice3V0(Er)',\
+                 'lattice1freq(100kHz)',\
+                 'lattice2freq(100kHz)',\
+                 'lattice3freq(100kHz)',\
+                 'lattice1V0(Er)',\
+                 'lattice2V0(Er)',\
+                 'lattice3V0(Er)',\
+                 'lattice1freq(100kHz)',\
+                 'lattice2freq(100kHz)',\
+                 'lattice3freq(100kHz)',\
+                 't1(Er)',\
+                 't2(Er)',\
+                 't3(Er)',\
+                 't1(kHz)',\
+                 't2(kHz)',\
+                 't3(kHz)',\
+                 'wannierF1(Er/a)',\
+                 'wannierF2(Er/a)',\
+                 'wannierF3(Er/a)',\
+                 'U1(Er)',\
+                 'U2(Er)',\
+                 'U3(Er)',\
+                 'U1(kHz)',\
+                 'U2(kHz)',\
+                 'U3(kHz)',\
                ]
 
 
@@ -202,6 +236,8 @@ class lattice_ch:
         self.V0 = V0
         self.ErMax = ErMax
         self.Vmax = Vmax
+    ### CALIB : power in mW 
+    ### FS : PD voltag
     def cnvcalib( self, val ):
         if 'ir' in self.name:
             return 1000. * val / 4. / 38709. * 1.4 * self.w0 * self.w0 
@@ -259,7 +295,6 @@ class convert:
         return self.check( ch, out, val)[1]
     
     def __init__(self):
-        dats = glob.glob(lab + 'software/apparatus3/convert/data/*.dat')
         
         ### This dictionaries define the functions used for conversion 
         self.fs={}
@@ -273,7 +308,8 @@ class convert:
         
         ### The for loop below takes care of all the channels that 
         ### are associated with a calibration file 
-        
+        dats = glob.glob(lab + 'software/apparatus3/convert/data/*.dat')
+
         for d in dats:
             table = np.loadtxt(d, usecols  = (1,0))
             
@@ -390,7 +426,7 @@ class convert:
         ### Channels that are NOT associated with calibration files are 
         ### defined below 
 
-        chs = ['uvpow2', 'shunt', 'ipganalog', 'rfmod'] 
+        chs = ['uvpow2', 'gradientfield', 'ipganalog', 'rfmod'] 
         for ch in chs:
             self.cnvcalib[ch] = lambda val: val
             self.invcalib[ch] = lambda val: val
@@ -422,7 +458,39 @@ class convert:
         self.physlims[ch] = o.physlims()
         self.voltlims[ch] = o.voltlims()    
 
-        
+        ### LATTICEDEPTH to TUNNELING / WANNIERFACTOR
+        tANDu = ['t_to_V0','wF_to_V0']
+        for ch in tANDu:
+            ### CALIB : unity
+            ### FS : interpolation
+            if 't_' in ch:
+                table = np.loadtxt(physpath+'tANDU.dat', usecols  = (1,0))
+            elif 'wF_' in ch:
+                table = np.loadtxt(physpath+'tANDU.dat', usecols  = (2,0))
+            else:
+                msg = 'ERROR initializing physics.py conversion ch = %s' % ch
+                errormsg.box('PHYSICS.PY', msg)
+                exit(1)
+            
+            ydat = table[:,1] # lattice depths
+            xdat = table[:,0] # tunneling / wFactor
+            
+            try:
+                f = pwlinterpolate.interp1d( xdat, ydat , name = ch)
+                g = pwlinterpolate.interp1d( ydat, xdat , name = ch)
+                
+            except ValueError as e:
+                print e
+                print "Could not define piecewiwse linear nterpolation function for : \n\t%s" % d
+                exit(1)
+ 
+            self.fs[ch] = f
+            self.gs[ch] = g
+           
+            self.cnvcalib[ch] = lambda val: val
+            self.invcalib[ch] = lambda val: val
+            self.physlims[ch] = self.invcalib[ch]( np.array( [ np.amin(xdat), np.amax(xdat) ] ) ) 
+            self.voltlims[ch] = np.array([0., 46.])
          
 
     def plot(self):
@@ -465,7 +533,7 @@ class convert:
     
         
         for ch in self.fs.keys():
-            if ch not in datchs and ( 'ir' in ch or 'gr' in ch or 'odt' in ch):
+            if ch not in datchs and ( 'ir' in ch or 'gr' in ch or 'odt' in ch or 'V0' in ch):
                 print "-------- %s --------" % ch 
                 print "physical limits = ", self.physlims[ch]
                 print "voltage  limits = ", self.voltlims[ch]
@@ -665,13 +733,14 @@ class calc:
 
     def prereq( self, ch ):
         if ch not in self.calcwfms.keys():
-            print "      calculating prerequisite: %s" % ch
+            print "\tcalculating prerequisite: %s" % ch
             self.calculate(ch)
         else:
-            print "      reusing prerequisite: %s" % ch
+            print "\treusing prerequisite: %s" % ch
 
     def calculate(self, ch):
         if ch in self.calcwfms.keys():
+            print"\talready in dictionary"
             return self.calcwfms[ch]
 
         ### Calculate trap depth and frequencies
@@ -679,44 +748,44 @@ class calc:
             """The table for the conversion from voltage to cpow is calculated
             using the odt.py module, inside the seq directory.  Type python odt.py
             The table is saved in physics/odtfcpow.dat"""
-            #self.calcwfms[ch] = self.basicConversion('physics/odtfcpow.dat', 0, 1, 'odtpow')
+            #self.calcwfms[ch] = self.basicConversion(physpath+'odtfcpow.dat', 0, 1, 'odtpow')
             self.calcwfms[ch] = self.cnvInversion( 'odtpow')
             return self.calcwfms[ch]
 
         elif ch == 'odtdepth(1uK)':
             self.prereq('odtfcpow')
-            self.calcwfms[ch] = self.interpch('physics/odt.dat', 0, 1, 'odtfcpow')
+            self.calcwfms[ch] = self.interpch(physpath+'odt.dat', 0, 1, 'odtfcpow')
             return self.calcwfms[ch]
 
         elif ch == 'odtdepth(100uK)':
             self.prereq('odtfcpow')
-            self.calcwfms[ch] = scaleFactor(self.interpch('physics/odt.dat', 0, 1, 'odtfcpow'), 1/100.)
+            self.calcwfms[ch] = scaleFactor(self.interpch(physpath+'odt.dat', 0, 1, 'odtfcpow'), 1/100.)
             return self.calcwfms[ch]
 
         elif ch == 'odtdepth(Er)':
             self.prereq('odtfcpow')
-            self.calcwfms[ch] = scaleFactor(self.interpch('physics/odt.dat', 0, 1, 'odtfcpow'), 1/1.4)
+            self.calcwfms[ch] = scaleFactor(self.interpch(physpath+'odt.dat', 0, 1, 'odtfcpow'), 1/1.4)
             return self.calcwfms[ch]
 
         elif ch == 'odtfreqAx(100Hz)':
             self.prereq('odtfcpow')
-            self.calcwfms[ch] = scaleFactor(self.interpch('physics/odt.dat', 0, 2, 'odtfcpow'), 1/100.)
+            self.calcwfms[ch] = scaleFactor(self.interpch(physpath+'odt.dat', 0, 2, 'odtfcpow'), 1/100.)
             return self.calcwfms[ch]
 
         elif ch == 'odtfreqRd(100Hz)':
             self.prereq('odtfcpow')
-            self.calcwfms[ch] = scaleFactor(self.interpch('physics/odt.dat', 0, 3, 'odtfcpow'), 1/100.)
+            self.calcwfms[ch] = scaleFactor(self.interpch(physpath+'odt.dat', 0, 3, 'odtfcpow'), 1/100.)
             return self.calcwfms[ch]
 
         elif ch == 'odtfreqRdZ(100Hz)':
             self.prereq('odtfcpow')
-            self.calcwfms[ch] = scaleFactor(self.interpch('physics/odt.dat', 0, 4, 'odtfcpow'), 1/100.)
+            self.calcwfms[ch] = scaleFactor(self.interpch(physpath+'odt.dat', 0, 4, 'odtfcpow'), 1/100.)
             return self.calcwfms[ch]
 
 
         ### Calculate Bfield
         elif ch == 'bfield(Amp)':
-            #self.calcwfms[ch] = self.basicConversion('physics/bfield.dat', 0, 1, 'bfield')
+            #self.calcwfms[ch] = self.basicConversion(physpath+'bfield.dat', 0, 1, 'bfield')
             self.calcwfms[ch] = self.cnvInversion('bfield')
             return self.calcwfms[ch]
 
@@ -733,44 +802,208 @@ class calc:
         ### Calculate scattering length
         elif ch == 'ainns(100a0)':
             self.prereq('bfield(G)')
-            self.calcwfms[ch] = scaleFactor(self.interpch( 'physics/ainns.dat', 0, 1, 'bfield(G)' ), 1/100.)
+            self.calcwfms[ch] = scaleFactor(self.interpch( physpath+'ainns.dat', 0, 1, 'bfield(G)' ), 1/100.)
             return self.calcwfms[ch]
 
         elif ch == 'arice(100a0)':
             self.prereq('bfield(G)')
-            self.calcwfms[ch] = scaleFactor(self.interpch( 'physics/arice.dat', 0, 1, 'bfield(G)' ), 1/100.)
+            self.calcwfms[ch] = scaleFactor(self.interpch( physpath+'arice.dat', 0, 1, 'bfield(G)' ), 1/100.)
             return self.calcwfms[ch]
             
         
         ### Calculate depth of IR and green beams
-        elif ch == 'ir1(Er)':
-            self.calcwfms[ch] = self.cnvInversion( 'ir1pow')
+        elif ch in ['ir1pow(Er)', 'ir2pow(Er)', 'ir3pow(Er)', 'greenpow1(Er)', 'greenpow1(Er)', 'greenpow3(Er)']: 
+            self.calcwfms[ch] = self.cnvInversion( ch.split('(')[0] ) 
             return self.calcwfms[ch]
-        elif ch == 'ir2(Er)':
-            self.calcwfms[ch] = self.cnvInversion( 'ir2pow')
-            return self.calcwfms[ch]
-        elif ch == 'ir3(Er)':
-            self.calcwfms[ch] = self.cnvInversion( 'ir3pow')
-            return self.calcwfms[ch]
-        
-        elif ch == 'gr1(Er)':
-            self.calcwfms[ch] = self.cnvInversion( 'greenpow1')
-            return self.calcwfms[ch]
-        elif ch == 'gr2(Er)':
-            self.calcwfms[ch] = self.cnvInversion( 'greenpow2')
-            return self.calcwfms[ch]
-        elif ch == 'gr3(Er)':
-            self.calcwfms[ch] = self.cnvInversion( 'greenpow3')
-            return self.calcwfms[ch]
-        
+
+        elif ch in ['ir1pow(100mW)', 'ir2pow(100mW)', 'ir3pow(100mW)', 'greenpow1(100mW)', 'greenpow1(100mW)', 'greenpow3(100mW)']:
+            lch  = ch.split('(')[0] 
+            Erch = lch + '(Er)' 
+            self.prereq( Erch )
+            l = lattice_ch( lch, w0d[lch], m1d[lch], V0d[lch], ErMaxd[lch], VMaxd[lch])
+            dat = self.calcwfms[Erch] 
+            self.calcwfms[ch] = (dat[0], l.cnvcalib( dat[1] )/100. )
+            return self.calcwfms[ch] 
+
+        ### Calculate lattice ratio
+        elif ch in ['lcr1(alpha)', 'lcr2(alpha)', 'lcr3(alpha)']:
+            self.calcwfms[ch] = self.cnvInversion( ch.split('(')[0] )
+            return self.calcwfms[ch] 
+
+
+
         ### These start getting more complicated because they have two or more prerequisites
         
-        ### Calculate lattice depth, frequencies
+        ### Calculate lattice depth, frequencies, tunneling rate, wannierFactor
+
+        elif ch in ['lattice1V0(Er)', 'lattice2V0(Er)', 'lattice3V0(Er)', \
+                    'lattice1freq(100kHz)', 'lattice2freq(100kHz)', 'lattice3freq(100kHz)', \
+                    't1(Er)', 't2(Er)', 't3(Er)', \
+                    't1(kHz)', 't2(kHz)', 't3(kHz)', \
+                    'wannierF1(Er/a)', 'wannierF2(Er/a)', 'wannierF3(Er/a)' \
+                   ]:
+
+            n=filter( str.isdigit, ch)[0]
+
+            v0 = self.wfms[ 'ir' + n + 'pow' ]
+            alpha = self.wfms[ 'lcr' + n ]
+
+            #Find the set of wfmouts where Er and alpha are defined
+            intsct = set( [i[1] for i in v0] )  &  set( [j[1] for j in alpha] )
+            
+            print "\tv0 and alpha are defined for %d wfmouts" % len(intsct) 
+
+            #Extract the waveforms and the data for the wfmouts where v0 and alpha are defined 
+            v0intwfm = [ out for out in v0 if out[1] in intsct ]
+            alintwfm = [ out for out in alpha if out[1] in intsct ]
+
+            v0intdat = np.concatenate( [ out[0] for out in v0intwfm ], axis=0)
+            alintdat = np.concatenate( [ out[0] for out in alintwfm ], axis=0) 
+
+            #Check that all have the same time axis 
+            if not ( v0intdat[:,0] == alintdat[:,0]).all() or v0intdat.shape != alintdat.shape or len(v0intwfm) != len(alintwfm):
+                print "\tMismatching time axes after intersecting v0 and alpha"
+                return None
+            else:
+                print "\tSuccesfully intersected v0 and alpha"
+            
+            #Convert the extracted data
+            times = v0intdat[:,0]
+
+            print "\tA total of %d samples will be calculated" % len(times)
+             
+            v0intdat  =   dll.inv( 'ir' + n + 'pow', v0intdat[:,1]  )
+            alintdat = dll.inv('lcr' + n, alintdat[:,1] )
+  
+            #Lattice depth         
+            self.calcwfms['lattice'+n+'V0(Er)'] = (times, v0intdat * np.sqrt(alintdat) )
+
+            #Lattice frequencies \vu = (2 Er / h)*sqrt(V0) = (58.33 kHz)*sqrt(V0)
+            self.calcwfms['lattice'+n+'freq(100kHz)'] = (times, (58.33/100.)*np.sqrt( v0intdat * np.sqrt(alintdat) ) )
+
+
+            #Anything that uses tANDU.dat needs to discard lattice depths outside (1.0, 40.0) !!!
+            #For this purpose we implement masked arrays
+        
+            #Calculate tunneling rate and wannierFactor,
+            #save the results in self.wfms format
+            t  = [] 
+            wf = []
+            for i in range(len(v0intwfm)):
+
+                v0 = v0intwfm[i]
+                al = alintwfm[i] 
+
+                index = v0[1]
+
+                if v0[1] != al[1]:  
+                   print "Index error in intersected wfm of v0 and alpha"
+                   return None
+                
+                
+                #From the wfms obtain the data  
+                v0dat = v0[0][:,1]
+                aldat = al[0][:,1]
+
+                #Convert this data to physical units using cnvInversion 
+                v0dat =  dll.inv( 'ir'+n+'pow' , v0dat)         
+                aldat =  dll.inv('lcr'+n, aldat) 
+                
+                latticeDepth = v0dat * np.sqrt(aldat) 
+
+                #Valid lattice depths
+                v0valid = ma.masked_array( latticeDepth, \
+                                   mask = np.logical_not( np.logical_and( latticeDepth > 0., latticeDepth < 46.0 )) )
+
+                #Fill bad lattice depths with a 1.0 
+                v0valid = v0valid.filled(1.0) 
+
+                
+                latticeDepth = np.transpose( np.vstack( ( np.zeros( v0valid.shape), v0valid )) )
+
+                tunneling = interpdat( physpath + 'tANDU.dat', 0, 1, latticeDepth )[1]
+                t.append( [ np.transpose( np.vstack( (v0[0][:,0], tunneling) ) ) , index ] )
+
+                wannierF  = interpdat( physpath + 'tANDU.dat', 0, 2, latticeDepth )[1]
+                wf.append([ np.transpose( np.vstack( (v0[0][:,0], wannierF) ) ) , index ] ) 
+
+            #Units of tunneling are Er
+            self.wfms['t'+n] = t 
+ 
+            #Units of wannier factor are   Er / ( lattice spacing )
+            self.wfms['wannierF'+n] = wf
+
+            #Wannier factor 
+            wfdat = np.concatenate( [ out[0] for out in wf], axis=0)
+            self.calcwfms['wannierF'+n+'(Er/a)'] = ( wfdat[:,0], wfdat[:,1] ) 
+            
+            #Save tunneling in various units to calcwfms
+            tdat = np.concatenate( [ out[0] for out in t ], axis=0)
+
+            #Tunneling rate in Er and in kHz ==> 1 Er = 29.2 kHz
+            self.calcwfms['t'+n+'(Er)'] = ( tdat[:,0], tdat[:,1] ) 
+            self.calcwfms['t'+n+'(kHz)'] =( tdat[:,0], tdat[:,1]*29.2 )  
+            
+            return self.calcwfms[ch] 
+
+        ### Calculate on-site interactions
+        elif ch in ['U1(Er)', 'U2(Er)', 'U3(Er)', \
+                    'U1(kHz)', 'U2(kHz)', 'U3(kHz)' ]:
+            
+            n=filter( str.isdigit, ch)[0]
+
+            wannierF = self.wfms[ 'wannierF' + n ]
+            bfield = self.wfms[ 'bfield']
+
+            #Find the set of wfmouts where the wannier factor and the bfield are defined
+            intsct = set( [i[1] for i in wannierF] )  &  set( [j[1] for j in bfield] )
+            
+            print "\twannierFactor and bfield are defined for %d wfmouts" % len(intsct) 
+
+            #Extract the waveforms and the data for the wfmouts where v0 and alpha are defined 
+            wFintwfm = [ out for out in wannierF if out[1] in intsct ]
+            BFintwfm = [ out for out in bfield if out[1] in intsct ]
+           
+            wFintdat = np.concatenate( [ out[0] for out in wFintwfm ], axis=0)
+            BFintdat = np.concatenate( [ out[0] for out in BFintwfm ], axis=0)
+
+
+            #Check that all have the same time axis 
+            if not ( wFintdat[:,0] == BFintdat[:,0]).all() or wFintdat.shape != BFintdat.shape or len(wFintwfm) != len(BFintwfm):
+                print "\tMismatching time axes after intersecting wannierFactor and bfield"
+                return None
+            else:
+                print "\tSuccesfully intersected wannierFactor and bfield"
+
+            times = wFintdat[:,0]
+            print "\tA total of %d samples will be calculated" % len(times)
+
+            wannierFactor = wFintdat[:,1]
+
+            B_Amps = dll.inv('bfield', BFintdat[:,1] )
+           
+            B_Gauss= np.transpose( np.vstack( (np.zeros(B_Amps.shape), B_Amps*6.8))) 
+
+            #Scattering length is calculated below using units of a0 
+            a_s = interpdat( physpath+'ainns.dat', 0, 1, B_Gauss)[1]
+
+            #Then converted into units of lattice spacing
+            a0 = 5.29e-11 # meters
+            a  = 1.064e-6/2. #meters
+            a_s = ( a_s * a0 ) / a
+
+            #Onsite interactions are obtained
+            U = a_s * wannierFactor
+
+            self.calcwfms['U'+n+'(Er)'] = (times, U)
+            self.calcwfms['U'+n+'(kHz)'] = (times, U*29.2)
+            
+            return self.calcwfms[ch] 
+
         
         ### Calculate 'confinement' 
         
 
-        ### Calculate on-site interactions
 
         else:
             print "Physical channel not found: %s" %  ch
@@ -810,8 +1043,8 @@ def onsite_int( wfms):
     bfield = bfield[:,1]
     latticeV0 = latticeV0[:,1]
 
-    bfield_Gauss = interpdat( 'physics/bfield.dat', 0, 1, bfield) * 6.8
-    scatt_length = interpdat( 'physics/ainns.dat', 0, 1, bfield_Gauss ) / 100.
+    bfield_Gauss = interpdat( physpath+'bfield.dat', 0, 1, bfield) * 6.8
+    scatt_length = interpdat( physpath+'ainns.dat', 0, 1, bfield_Gauss ) / 100.
 
     onsite =  scatt_length
 

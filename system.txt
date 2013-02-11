@@ -49,7 +49,7 @@ PXI1Slot7/port0/line6   quick2		0
 PXI1Slot7/port0/line7   hfimg2		0
 PXI1Slot8/port0/line0   analogimgttl		0
 PXI1Slot8/port0/line1   latticeinterlockbypass		0
-PXI1Slot8/port0/line2   DG_NC2		0
+PXI1Slot8/port0/line2   gradientfieldttl		0
 PXI1Slot8/port0/line3   DG_NC3		0
 PXI1Slot8/port0/line4   DG_NC4		0
 PXI1Slot8/port0/line5   DG_NC5		0
@@ -109,7 +109,7 @@ PXI1Slot7/ao5	greenpow3		0.00
 PXI1Slot7/ao6	ipganalog	10.00
 PXI1Slot7/ao7	lcr3		0.00
 PXI1Slot8/ao0	uv1freq		0.00
-PXI1Slot8/ao1	shunt		0.00
+PXI1Slot8/ao1	gradientfield		0.00
 PXI1Slot8/ao2	rfmod		0.00
 PXI1Slot8/ao3	analogimg		0.00
 PXI1Slot8/ao4	uvfppiezo	0.00

@@ -364,7 +364,7 @@ def odt_evap_field_free(toENDBFIELD, scale =1.0):
 	gen.save_to_report('EVAP','finalcpow', finalcpow)
 	
 
-	#---Setup field ramp
+	#---Setup field ramp and shunt ramp
 	field_ramp_time = EVAP.fieldrampt0*scale
 	field_ramp_dt   = EVAP.fieldrampdt*scale
 
@@ -377,8 +377,6 @@ def odt_evap_field_free(toENDBFIELD, scale =1.0):
 		bfield.extend(EVAP.image*scale)
 	else:
 		bfield.chop(EVAP.image*scale)
-	ramp = bfield.y
-	
 	
 	#---Setup ipganalog ramp
 	ipganalog = ipg_wave('ipganalog', 10., EVAP.evapss)
@@ -410,6 +408,7 @@ def crossbeam_dimple_evap(s, toENDBFIELD):
 
 	bfield, odtpow, ENDEVAP, cpowend, ipganalog = odt_evap_field_free(toENDBFIELD)
 	
+	
 	#---Set LCR preset value in the begining of evap 1 is lattice 0 is dimple
 	def dimpleset(ch):
 		w = lattice.lattice_wave(ch, 0., EVAP.evapss)
@@ -422,15 +421,22 @@ def crossbeam_dimple_evap(s, toENDBFIELD):
 	
 	#---Ramp up IR, GR beams
 	def rampup( ch ):
+		
 		w = lattice.lattice_wave(ch, 0., EVAP.evapss)
+		
 		if 'ir' in ch:
+			n=filter( str.isdigit, ch)[0]
 			w.appendhold( DIMPLE.ir_t0 )
-			w.tanhRise( DIMPLE.ir_pow, DIMPLE.ir_dt, DIMPLE.ir_tau, DIMPLE.ir_shift)
+			w.tanhRise( DIMPLE.__dict__['ir'+n+'pow'], DIMPLE.ir_dt, DIMPLE.ir_tau, DIMPLE.ir_shift)
+			
 		elif 'green' in ch:
+			n=filter( str.isdigit, ch)[0]
 			w.appendhold( DIMPLE.gr_t0 )
-			w.tanhRise( DIMPLE.gr_pow, DIMPLE.gr_dt, DIMPLE.gr_tau, DIMPLE.gr_shift)
+			w.tanhRise( DIMPLE.__dict__['gr'+n+'pow'], DIMPLE.gr_dt, DIMPLE.gr_tau, DIMPLE.gr_shift)
+			
 		else:
 			print "Error ramping up IR,GR beams in crossbeam_dimple_evap"
+			
 		return w
 	
 	ir1 = rampup('ir1pow')
@@ -457,14 +463,19 @@ def crossbeam_dimple_evap(s, toENDBFIELD):
 	s.digichg( 'greenttl3', DIMPLE.gr3)
 	s.wait(-DIMPLE.gr_t0 )
 	
+	gradient = gradient_wave('gradientfield', 0.0, bfield.ss)
+	gradient.follow( bfield)
 	
-	s.analogwfm_add(EVAP.evapss,[odtpow,ipganalog, bfield,ir1,ir2,ir3,gr1,gr2,gr3,lcr1,lcr2,lcr3])
-
-	extrafree = EVAP.free - EVAP.buffer - toENDBFIELD
+	s.analogwfm_add(EVAP.evapss,[odtpow,ipganalog, bfield, gradient, ir1,ir2,ir3,gr1,gr2,gr3,lcr1,lcr2,lcr3])
+	
+	#Turn on the shunt TTL
+	s.digichg('gradientfieldttl', DIMPLE.shuntttl)
+	
+	odtfree = EVAP.free - EVAP.buffer - toENDBFIELD
 	
 	#Add quick jump to help go to final evaporation field
 	if ( EVAP.use_field_ramp == 1 and  EVAP.image > EVAP.fieldrampt0):
-		s.wait( EVAP.fieldrampt0 + extrafree )
+		s.wait( EVAP.fieldrampt0 + odtfree )
 		s.wait(-25.0)
 		s.digichg('hfquick',1)
 		s.digichg('quick',1)
@@ -472,7 +483,7 @@ def crossbeam_dimple_evap(s, toENDBFIELD):
 		s.digichg('hfquick',0)
 		s.digichg('quick',0)
 		s.wait(-50.0)
-		s.wait(-EVAP.fieldrampt0 - extrafree)
+		s.wait(-EVAP.fieldrampt0 - odtfree)
 	
 	s.wait(EVAP.free - EVAP.buffer - toENDBFIELD)
 	s.wait(EVAP.image)
@@ -481,9 +492,9 @@ def crossbeam_dimple_evap(s, toENDBFIELD):
 		s.wait( DIMPLE.image - EVAP.image)
 	else:
 		s.wait( DIMPLE.image - EVAP.image)
+		cpowend = odtpow.y[numpy.floor( (DIMPLE.image + odtfree) / EVAP.evapss )]
 		s.stop_analog() 
-		#trajectory = numpy.loadtxt( report['EVAP']['ramp'], delimiter=',')
-		#cpowend = trajectory[ numpy.floor(DIMPLE.image/EVAP.evapss) ]
+		
 	
 	print "...Evap cpowend  = %f" % cpowend
 	
@@ -557,6 +568,44 @@ def odt_dbz(odtpow0):
 	
 	odtpow.extend( bfield.dt() )
 	return odtpow, bfield, OFFDT1
+	
+	
+###########################################
+#### GRADIENT FIELD ANALOG WAVEFORM ###
+###########################################
+
+
+class gradient_wave(wfm.wave):
+	"""The gradient_wave class helps construct the waveform that 
+		will be used to shunt current from the top coil, so that we
+		cancel gravity at any value of the magnetic field
+		
+		The main method is 'follow', which allows the shunt current
+		to be set according to our levitation calibration.
+		"""
+	def follow(self, bfield):
+		### Levitation voltage:
+		###
+		### Vlev = slope * I + offset
+		###
+		### wherer I is the current on the bias coils
+		### slope and offset have been calibrated and are set below:
+		
+		slope = 0.0971
+		offset = -2.7232
+		
+		if self.ss != bfield.ss:
+			msg = "ERROR in GRADIENT wave:  step size does not match the bfield ramp!"
+			print msg
+			errormsg.box('gradient_wave.follow', msg)
+			exit(1)
+		
+		print "...Setting GRADIENT to follow bfield ramp"
+		
+		bfieldV = numpy.copy(bfield.y)
+		bfieldA = physics.inv( 'bfield', bfieldV)
+		self.y = slope * bfieldA + offset
+		
 
 
 ###########################################
@@ -579,20 +628,19 @@ class ipg_wave(wfm.wave):
 		ipgmargin =  10.; #  5% margin for ipg
 		ipgmin    = 50.; # 20% minimum output power for ipg 
 		# Change to 50 ( 03022012 by Ernie, since we see 20 is noisey on light)
-		self.y = numpy.copy(odtpow.y)
+		odtpowV = numpy.copy(odtpow.y)
+		
+		odtpowFCPOW = physics.inv( 'odtpow', odtpowV)
 		
 		print "...Setting IPG to follow the evap ramp"
 		
-		for i in range(self.y.size):
-			odt = physics.inv( 'odtpow', self.y[i] )
-			ipg =  odt + 10.*ipgmargin/100.
-			if ipg > 10.0:  #can't do more than 10.0 Volts
-				ipg = 10.0
-			if ipg < 10.*ipgmin/100.:  #should not do less than ipgmin
-				ipg = 10.*ipgmin/100.
-			self.y[i] = ipg
-			#print "%.3f -> %.3f\t" % (odt,ipg)
-
+		ipg = odtpowFCPOW + 10.*ipgmargin/100. 
+		
+		ipg[ ipg>10.0 ] = 10.0
+		ipg[ ipg<10.*ipgmin/100.] = 10.*ipgmin/100.
+		
+		self.y = ipg
+		
 
 ###########################################
 #### LOWER LEVEL CODE FOR ODT WAVEFORMS ###

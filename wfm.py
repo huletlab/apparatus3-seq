@@ -22,7 +22,7 @@ class wave:
 		with a voltage instead of a physical quantity"""
 	def __init__(self,name,val,stepsize,N=1,volt=-11):
 		"""Initialize the waveform  """
-		print "Using physics conversion wfm.py"
+
 		self.idnum = time.time()*100
 		self.name = name
 		
@@ -307,7 +307,26 @@ class wave:
 
 
 
-
+	def tanhRise(self,vf,dt,tau,shift):
+		#print "---> Initializing lattice wave : %s" % self.name
+		#print "convert.cnv(%.6f) = %.6f" % ( vf, cnv(self.name,vf))
+		#print "physics.cnv(%.6f) = %.6f" % ( vf, physics.cnv(self.name,vf))
+		#vf=cnv(self.name,vf)
+		vf=physics.cnv(self.name,vf)
+		v0=self.last()
+		if dt == 0.0:
+			self.y[ self.y.size -1] = vf
+			return
+		else:
+			N = int(math.floor(dt/self.ss))
+			print '...Making new tanhRise ramp for ' + self.name
+			x=numpy.arange(dt/N,dt,dt/N)
+			tau = tau*dt
+			shift = dt/2. + shift*dt/2.
+			ramp= v0 + (vf-v0)* ( (1+numpy.tanh((x-shift)/tau)) - (1+numpy.tanh((-shift)/tau)) )\
+							/ ( (1+numpy.tanh((dt-shift)/tau)) - (1+numpy.tanh((-shift)/tau)) )
+			self.y=numpy.append(self.y, ramp)	
+			return
 
 
 

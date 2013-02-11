@@ -15,6 +15,7 @@ import physics
 import os
 from mpl_figure_editor import MPLFigureEditor
 from matplotlib.figure import Figure
+import matplotlib
 import wx
 import numpy
 
@@ -181,9 +182,26 @@ class MainWindow(HasTraits):
     def _pck_(self,action,f=mainpck):
         if action == 'load':
             try:
-                fpck=open(f,"rb")
-                print 'Loading panel from %s ... ' % mainpck
-                self.seqs = pickle.load(fpck)
+
+                try:
+                    fpck=open(f,"rb")
+                    print 'Loading panel from %s ... ' % mainpck
+                    self.seqs = pickle.load(fpck)
+
+                    self.autorangeY = pickle.load(fpck)
+                    self.plot_rangeY_max = pickle.load(fpck)
+                    self.plot_rangeY_min = pickle.load(fpck)
+                 
+                    self.autorange = pickle.load(fpck)
+                    self.plot_range_max = pickle.load(fpck)
+                    self.plot_range_min = pickle.load(fpck)
+                    fpck.close()
+                except:
+                    fpck=open(f,"rb")
+                    print 'Loading panel from %s ... ' % mainpck
+                    self.seqs = pickle.load(fpck)
+                    fpck.close()
+                 
             except:
                 print "Loading Fail"
                 return
@@ -191,7 +209,16 @@ class MainWindow(HasTraits):
             print 'Saving panel to %s ...' % mainpck
             fpck=open(f,"w+b")
             pickle.dump(self.seqs,fpck)
-        fpck.close()
+            
+            pickle.dump(self.autorangeY, fpck)
+            pickle.dump(self.plot_rangeY_max, fpck)
+            pickle.dump(self.plot_rangeY_min, fpck)
+
+            pickle.dump(self.autorange, fpck)
+            pickle.dump(self.plot_range_max, fpck)
+            pickle.dump(self.plot_range_min, fpck) 
+
+            fpck.close()
     
     #Here are the elements of the main window
     figure = Figure()
@@ -306,6 +333,10 @@ class MainWindow(HasTraits):
         self.data_analog_time = []
         self.data_analog_names = []
 
+        self.data_physical = []
+        self.data_physical_time = []
+        self.data_physical_names = []
+
         #Find out how many digital channels will be plotted 
         digi_counter = 1
         for seq in self.seqs:
@@ -348,17 +379,17 @@ class MainWindow(HasTraits):
                                self.data_analog.append(waveform.data[i])
                                
                            elif waveform.name == 'Physical':
-                               self.data_analog_names.append(seq.name + '_' + waveform.name + '_' + channel)
+                               self.data_physical_names.append(seq.name + '_' + waveform.name + '_' + channel)
                                if channel in seq.calcwfms.keys() and not seq.recalculate:
-                                  print "...Reusing Physical: %s" % channel
+                                  print "\n...Reusing Physical: %s" % channel
                                   dat = seq.calcwfms[channel]
                                else:
-                                  print "...Calculating Physical: %s" % channel
+                                  print "\n...Calculating Physical: %s" % channel
                                   dat = physical.calculate(channel)
                                   seq.calcwfms[channel] = dat
 
-                               self.data_analog_time.append( dat[0] )
-                               self.data_analog.append( dat[1] )
+                               self.data_physical_time.append( dat[0] )
+                               self.data_physical.append( dat[1] )
             seq.recalculate = False
                                                         
         
@@ -373,13 +404,15 @@ class MainWindow(HasTraits):
         """ Plots an image on the canvas
         """
         self.image_clear()
-        self.figure.add_axes([0.08,0.5,0.7,0.4])
-        analog_axis = self.figure.axes[0]
+        analog_axis = self.figure.add_axes([0.08,0.5,0.7,0.4])
 
-        self.figure.add_axes([0.08,0.05,0.7,0.4])
-        self.figure.axes[1].set_yticks([])
-        digi_axis = self.figure.axes[1].twinx()
+        digi_axis_left = self.figure.add_axes([0.08,0.05,0.7,0.4])
+        digi_axis_left.set_yticks([])
+
+        digi_axis = digi_axis_left.twinx()
         digi_ticks = []
+
+        #physical_axis = analog_axis.twinx() 
 
         #Makes the digital plot
         for i, name in enumerate(self.data_digi_names):
@@ -388,19 +421,30 @@ class MainWindow(HasTraits):
             digi_axis.axhline(- (i+1)*10./len(self.data_digi_names),color='grey', lw=1.5)
 
         #digi_axis.legend(bbox_to_anchor=(1.01, 0.5),loc=2,prop={'size':10})
-        self.figure.axes[1].set_ylabel('TTL')
-        digi_axis.grid(True)
+        digi_axis_left.set_ylabel('TTL')
         
+        #Label the digital waveforms using the ticklabels on the plot    
+        digi_axis.set_ylim(bottom=-11,top=0)
+        digi_axis.set_yticks(digi_ticks)
+        digi_axis.set_yticklabels(self.data_digi_names)
+
+        digi_axis_left.get_xaxis().set_minor_locator( matplotlib.ticker.AutoMinorLocator() )
+        digi_axis_left.grid(True, which='both')
     
         #Makes the analog plot
         for i, name in enumerate(self.data_analog_names):
             analog_axis.step(self.data_analog_time[i],self.data_analog[i],where = 'post', label = name)  
+    
+        #Makes the physical plot
+        for i, name in enumerate(self.data_physical_names):
+            analog_axis.step(self.data_physical_time[i],self.data_physical[i],ls=':',where = 'post', label = name)  
         
         analog_axis.axhline(0, color='black', lw=2)
         analog_axis.legend(bbox_to_anchor=(1.01, 1.01),loc=2,prop={'size':10})
         analog_axis.set_xlabel('Time(ms)')
-        analog_axis.set_ylabel('Voltage(V)')
-        analog_axis.grid(True)
+        analog_axis.set_ylabel('Voltage(V) / Physical(?)')
+        analog_axis.get_xaxis().set_minor_locator( matplotlib.ticker.AutoMinorLocator() )
+        analog_axis.grid(True, which='both')
        
         #Take care of the Yaxis range of the analog plot 
         if not self.autorangeY: 
@@ -425,10 +469,6 @@ class MainWindow(HasTraits):
             self.plot_range_max = axismax
             self.plot_range_min = axismin
         
-        #Label the digital waveforms using the ticklabels on the plot    
-        digi_axis.set_ylim(bottom=-11,top=0)
-        digi_axis.set_yticks(digi_ticks)
-        digi_axis.set_yticklabels(self.data_digi_names)
         
         wx.CallAfter(self.figure.canvas.draw)
 

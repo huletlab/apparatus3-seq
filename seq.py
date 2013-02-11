@@ -169,6 +169,13 @@ class wfmout:
 		
 		if self.stop != None:
 			stoplen = int(math.ceil( (self.stop - self.time)/self.step))
+			if stoplen % 2 != 0:
+				print "\n---stoppping waveform at t = %.3f ms will result in an odd number of samples !!!" % (self.stop)
+				print "---an extra sample will be appended to avoid DAQmx problems"
+				
+				stoplen = stoplen + 1
+				
+				
 
 		
 		if self.stop != None and stoplen < 2:
@@ -194,20 +201,24 @@ class wfmout:
 						vals = vals[:stoplen]
 						#print "STOPPING %s : (%d > %d)" % (ch['name'], length, stoplen)
 						#print len(vals)
-						values = ','.join(vals)
 					elif length < stoplen:
 						vals = vals + (stoplen-length)*[vals[-1]]
 						#print "APPENDING TO %s : (%d < %d) " %(ch['name'],length, stoplen)
 						#print vals
 						#print len(vals)
-						values = ','.join(vals)
+					if len(vals) % 2 != 0:
+						msg = "ERROR: A waveform with odd number of samples is invalid!"
+						print msg
+						raise ValueError(msg)
+					values = ','.join(vals)
 					s2=s2+values
 				else:
 					s2=s2+values				
 				
-			except:
+			except ValueError as e:
 				print 'ERROR: Cannot process %s' % ch['path']
-				return ''
+				raise ValueError(e)
+				
 			
 			#Find the value after the last ',' and strips the end of line
 			try:

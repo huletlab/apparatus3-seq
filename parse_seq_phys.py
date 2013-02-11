@@ -1,8 +1,19 @@
 import matplotlib.pyplot as pyplot
 import numpy as np
-import seqconf
+
 import os
+
+if os.name == 'posix':
+    lab = '/lab/'
+else:
+    lab = 'L:/'
+import sys
+sys.path.append(lab + 'software/apparatus3/seq')
+sys.path.append(lab + 'software/apparatus3/seq/utilspy')
+
+import seqconf
 import argparse
+import errormsg
 
 
 endofline="\n"
@@ -78,6 +89,11 @@ class parse_seq:
             #All CHANNELS in WAVEFORM have the same TIMEDATA
             #Here it is calculated using the initial TIME and the STEP        
             self.analog_time[i] = list(np.arange(0, len(self.analog_data[i][0]), 1)*self.analog_step[i]  + self.analog_time0[i])
+            if len(self.analog_time[i]) % 2 != 0 :
+                err =  "\n WARNING:\n\n%s\n\nwaveform has an odd number of samples : %d" % (self.analog_channels[i], len(self.analog_time[i]))
+                err = err +  "\n\nA DAQmx error will occur if you try to run this on labview"
+                print err
+                errormsg.box("INVALID WAVEFORM ERROR", err ) 
 
 
         #Collect information for each channel into two dictionaries
