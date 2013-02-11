@@ -52,10 +52,15 @@ def dimple_to_lattice(s):
     x_v0 = numpy.arange( v0.size )
     x_v0 = x_v0*DL.ss
     
+    ###########################################
+    #### AXIS DEFINITIONS FOR PLOTS ###
+    ###########################################    
+    
     fig = plt.figure( figsize=(6.,7.))
     ax0 = fig.add_axes( [0.12,0.63,0.76,0.32]) 
     ax1 = fig.add_axes( [0.12,0.43,0.76,0.16])
     ax2 = fig.add_axes( [0.12,0.23,0.76,0.16])
+    ax3 = fig.add_axes( [0.12,0.03,0.76,0.16])
     
 
     ax0.plot( x_v0, v0, 'b', lw=2.5, label='Lattice depth')
@@ -188,6 +193,8 @@ def dimple_to_lattice(s):
     
     ax2.set_xlabel('time (ms)')
     ax2.legend(loc='best',numpoints=1,prop={'size':6})
+    
+    
     
 
     

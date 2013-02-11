@@ -1,4 +1,6 @@
+*.bak
 *.pyc
+*.pck
 *~
 benchmark/data/
 seqspy/sandbox/ramps
