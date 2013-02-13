@@ -2235,7 +2235,7 @@ Cell[17438, 390, 208, 4, 53, "Subsection"],
 Cell[17649, 396, 1527, 38, 152, "Input"]
 }, Open  ]],
 Cell[CellGroupData[{
-Cell[19213, 439, 253, 5, 70, "Subsection"],
+Cell[19213, 439, 253, 5, 53, "Subsection"],
 Cell[19469, 446, 205, 5, 65, "Text"],
 Cell[19677, 453, 1893, 46, 238, "Input"]
 }, Open  ]],

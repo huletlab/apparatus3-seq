@@ -2,6 +2,7 @@ __author__ = "Pedro M Duarte"
 
 import sys
 import os
+import shutil
 
 #Use this line to use the parameters in seq/benchmark/report_benchamr.INI and the output expseq.txt will located at the benchmark folder as well
 #sys.path.append( os.path.split(os.path.dirname(os.path.realpath(__file__)))[0]+'/benchmark')
@@ -26,11 +27,14 @@ report=gen.getreport()
     
 #GET SECTION CONTENTS
 DIMPLE = gen.getsection('DIMPLE')
-EVAP = gen.getsection('EVAP')
-FB = gen.getsection('FESHBACH')
-ZC   = gen.getsection('ZEROCROSS')
-ANDOR= gen.getsection('ANDOR')
-SHUNT= gen.getsection('SHUNT')
+EVAP   = gen.getsection('EVAP')
+FB     = gen.getsection('FESHBACH')
+ZC     = gen.getsection('ZEROCROSS')
+ANDOR  = gen.getsection('ANDOR')
+DL     = gen.getsection('DIMPLELATTICE')
+MANTA  = gen.getsection('MANTA')
+
+print '...Compilation = %.2f seconds\n' % (time.time()-t0)
 
 
 #SEQUENCE
@@ -48,88 +52,94 @@ if ANDOR.analoghfimg == 1:
 	s.digichg('analogimgttl',1)
 
 
+print '...Compilation = %.2f seconds\n' % (time.time()-t0)
+
 
 # Do CNC, UVMOT, and field ramps
 s, toENDBFIELD = highfield_uvmot.go_to_highfield(s)
+
+
+print '...Compilation = %.2f seconds\n' % (time.time()-t0)
 
 
 # Evaporate into the dimple 
 s, cpowend = odt.crossbeam_dimple_evap(s, toENDBFIELD)
 
 
+print '...Compilation = %.2f seconds\n' % (time.time()-t0)
+
+
 # Ramp up the lattice
-s = lattice.dimple_to_lattice(s)
+s = lattice.dimple_to_lattice(s,cpowend)
 
 
-buffer = 20.
-s.wait(buffer)
-
-# Ramp dipole trap to new value
-odtpow = odt.odt_wave('odtpow', None, DIMPLE.analogss, volt=cpowend)
-if DIMPLE.odt_t0 > buffer :
-	odtpow.appendhold( DIMPLE.odt_t0 - buffer)
-if DIMPLE.odt_pow < 0.:
-	odtpow.appendhold( DIMPLE.odt_dt)
-else:
-	odtpow.tanhRise( DIMPLE.odt_pow, DIMPLE.odt_dt, DIMPLE.odt_tau, DIMPLE.odt_shift)
+print '...Compilation = %.2f seconds\n' % (time.time()-t0)
 
 
-# Go to scattering length zero-crossing
-fieldF = EVAP.fieldrampfinal if DIMPLE.image > EVAP.fieldrampt0 else FB.bias
-bfield = wfm.wave('bfield', fieldF, DIMPLE.analogss)
-bfield.extend( odtpow.dt() ) 
-bfield.appendhold( DIMPLE.zct0 )
-bfield.linear(ZC.zcbias, ZC.zcrampdt)
-bfield.appendhold(ZC.zcdt)
-
-#~ shunt = wfm.wave('gradientfield', DIMPLE.finalV, DIMPLE.analogss)
-#~ shunt.extend( odtpow.dt() ) 
-#~ shunt.appendhold( DIMPLE.zct0 )
-#~ shunt.linear( DIMPLE.zcV, ZC.zcrampdt)
-#~ shunt.appendhold(ZC.zcdt)
-
-# Add waveforms
-gradient = odt.gradient_wave('gradientfield', 0.0, bfield.ss)
-gradient.follow( bfield)
-s.analogwfm_add(DIMPLE.analogss,[odtpow,bfield,gradient])
-
-s.wait( odtpow.dt())
-
-if math.fabs(DIMPLE.odt_pow) < 0.001:
-    s.digichg('odtttl',0)
-
-s.wait( DIMPLE.zct0 )
-
-#At this point turn on the shunt servoing
-#~ s.wait(5.0)
-#~ s.digichg('gradientfieldttl', SHUNT.shuntttl)
-#~ s.wait(-5.0)
-
-#If ZC ramp needs to go up, then help it with a quick
-if ( EVAP.use_field_ramp != 1 or  DIMPLE.image < EVAP.fieldrampt0):
+#########################################
+## OTHER TTL EVENTS: probekill, braggkill, rf
+#########################################
+# Probe Kill
+if DL.probekill == 1:
+	s.wait(DL.probekilltime)
 	
-	s.wait(-12.0)
-	s.digichg('hfquick',1)
-	s.digichg('quick',1)
-	s.wait(12.0)
+	if DL.kill_hfimg2 == 1 :
+		print "hfimg2 on"
+		s.wait(-50)
+		s.digichg('hfimg2',1)
+		s.wait(50)
 	
-	#for safety turn this back off a little later
-	s.wait(150.0)
-	s.digichg('hfquick',0)
-	s.digichg('quick',0)
-	s.wait(-150.0)
-
-s.wait(ZC.zcrampdt + ZC.zcdt)
-
-
-
-
-
+	s.wait(-10)
+	s.digichg('prshutter',0)
+	s.wait(10)
+	s.digichg('probe',1)
+	s.wait(DL.probekilldt)
+	s.digichg('probe',0)
 	
+	if DL.kill_hfimg2 == 1:
+		s.digichg('hfimg2',0)
+
+	s.digichg('prshutter',1)
+	s.wait(-DL.probekilltime)
+
+# Pulse RF
+if DL.rf == 1:
+	s.wait(DL.rftime)
+	s.digichg('rfttl',1)
+	s.wait(DL.rfpulsedt)
+	s.digichg('rfttl',0)
+	s.wait(-DL.rfpulsedt)
+	s.wait(-DL.rftime)
+	
+# Braggkill
+if DL.braggkill == 1:
+	s.wait( DL.braggkilltime)
+	
+	if DL.kill_hfimg2 == 1 :
+		print "hfimg2 on"
+		s.wait(-50)
+		s.digichg('hfimg2',1)
+		s.wait(50)
+	
+	s = manta.OpenShutterBragg(s,DL.shutterdelay)
+	s.digichg('bragg',1)
+	s.wait( DL.braggkilldt)
+	s.digichg('brshutter',1) # to close shutter
+	s.digichg('bragg',0)
+	
+	if DL.kill_hfimg2 == 1:
+		s.digichg('hfimg2',0)
+	
+	s.wait( -DL.braggkilldt)
+	s.wait( -DL.braggkilltime )
+
+
 #########################################
 ## TTL RELEASE FROM ODT and LATTICE
 #########################################
 #RELEASE FROM LATICE
+if DL.tof <= 0.:
+    s.wait(1.0)
 s.digichg('greenttl1',0)
 s.digichg('greenttl2',0)
 s.digichg('greenttl3',0)
@@ -138,28 +148,79 @@ s.digichg('irttl2',0)
 s.digichg('irttl3',0)
 #RELEASE FROM IR TRAP
 s.digichg('odtttl',0)
-s.wait(DIMPLE.tof)
+if DL.tof <= 0.:
+    s.wait(-1.0)
+
+s.wait(DL.tof)
 
 
 #########################################
 ## PICTURES
 #########################################
 
+#INDICATE WHICH CHANNELS ARE TO BE CONSIDERED FOR THE BACKGROUND
+bg = ['odtttl','irttl1','irttl2','irttl3','greenttl1','greenttl2','greenttl3']
+bgdict={}
+for ch in bg:
+    bgdict[ch] = s.digistatus(ch)
+
+print '...Compilation = %.2f seconds\n' % (time.time()-t0)
 
 #TAKE PICTURES
-light = 'probe'
-#light = 'motswitch'
-#light = 'bragg'
-if DIMPLE.tof <= 0.0:
-    trap_on_picture = 1
-else:
-    trap_on_picture = 0
-kinetics = gen.bstr('Kinetics',report)
-print '...kinetics = ' + str(kinetics)
-if kinetics == True:
-    s,SERIESDT = andor.KineticSeries4(s,ANDOR.exp,light,ANDOR.noatoms, trap_on_picture)
-else:
-    s,SERIESDT = andor.FKSeries2(s,SEQ.stepsize,ANDOR.exp,light,ANDOR.noatoms, trap_on_picture)
+#####light = this is 'probe', 'motswitch' or 'bragg'
+#####camera = this is 'andor' or 'manta'
+if DL.light == 'bragg':
+    s = manta.OpenShutterBragg(s,DL.shutterdelay)
+
+if DL.camera == 'andor':
+	s,SERIESDT = andor.KineticSeries4_SmartBackground(s,ANDOR.exp, DL.light,ANDOR.noatoms, bg)
+		
+elif DL.camera == 'manta':
+	#PICTURE OF ATOMS
+	s=manta.MantaPicture(s, MANTA.exp, DL.light, 1)
+	s.wait(MANTA.noatoms)
+	#RELEASE FROM ODT AND LATTICE
+	s.digichg('quick2',0)
+	s.digichg('field',0)
+	s.digichg('odtttl',0)
+	s.digichg('odt7595',0)
+	s.digichg('ipgttl',0)
+	s.digichg('greenttl1',0)
+	s.digichg('greenttl2',0)
+	s.digichg('greenttl3',0)
+	s.digichg('irttl1',0)
+	s.digichg('irttl2',0)
+	s.digichg('irttl3',0)
+	s.wait(50.0)
+	
+	#RESTORE LIGHTS FOR BACKGROUND
+	for key in bgdict.keys():
+		s.digichg( key, bgdict[key])
+		
+	s.wait(20.0)
+
+	#PICTURE OF BACKGROUND
+	s=manta.MantaPicture(s, MANTA.exp, DL.light, 1)
+	s.wait(MANTA.noatoms)
+	
+	#HERE TURN OFF ALL LIGHT THAT COULD GET TO THE MANTA
+	s.digichg('odtttl',0)
+	s.digichg('odt7595',0)
+	s.digichg('ipgttl',0)
+	s.digichg('greenttl1',0)
+	s.digichg('greenttl2',0)
+	s.digichg('greenttl3',0)
+	s.digichg('irttl1',0)
+	s.digichg('irttl2',0)
+	s.digichg('irttl3',0)
+	s.wait(20.0)
+	
+	#REFERENCE #1
+	s=manta.MantaPicture(s, MANTA.exp, DL.light, 0)
+	s.wait(MANTA.noatoms)
+	#REFERENCE #2
+	s=manta.MantaPicture(s, MANTA.exp, DL.light, 0)
+	s.wait(MANTA.noatoms)
 
 
 
@@ -170,10 +231,13 @@ s=gen.shutdown(s)
 s.digichg('odtttl',0)
 s.digichg('odt7595',0)
 
+print '...Compilation = %.2f seconds\n' % (time.time()-t0)
 
-import seqconf
-s.save( seqconf.seqtxtout() )
-s.save( __file__.split('.')[0]+'.txt')
+
+outputfile = seqconf.seqtxtout() 
+s.save( outputfile )
+
+shutil.copyfile( outputfile,  __file__.split('.')[0]+'.txt')
 
 s.clear_disk()
         

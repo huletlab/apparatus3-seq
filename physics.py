@@ -1,7 +1,7 @@
 import numpy as np
 import numpy.ma as ma
 from scipy.interpolate import interp1d, UnivariateSpline
-import matplotlib.pyplot as plt
+
 
 import argparse
 import glob
@@ -30,24 +30,27 @@ import seqconf, gen
 channel_list = [
                  'odtfcpow', \
                  'odtdepth(1uK)', \
+                 'odtdepth(Er)', \
                  'odtdepth(100uK)', \
                  'odtfreqAx(100Hz)', \
                  'odtfreqRd(100Hz)', \
                  'odtfreqRdZ(100Hz)', \
                  'bfield(Amp)', \
                  'bfield(G)', \
+                 'hfimg0(100MHz)', \
+                 'analoghfimg(100MHz)', \
                  'bfield(100G)', \
                  'ainns(100a0)', \
                  'arice(100a0)', \
-                 'gr1pow(Er)',\
-                 'gr2pow(Er)',\
-                 'gr3pow(Er)',\
+                 'greenpow1(Er)',\
+                 'greenpow2(Er)',\
+                 'greepow3(Er)',\
                  'ir1pow(Er)',\
                  'ir2pow(Er)',\
                  'ir3pow(Er)',\
-                 'gr1pow(100mW)',\
-                 'gr2pow(100mW)',\
-                 'gr3pow(100mW)',\
+                 'greenpow1(100mW)',\
+                 'greenpow2(100mW)',\
+                 'greenpow3(100mW)',\
                  'ir1pow(100mW)',\
                  'ir2pow(100mW)',\
                  'ir3pow(100mW)',\
@@ -99,7 +102,7 @@ w0d['greenpow3'] = 34.5
 
 #PD slopes
 m1d = {}
-m1d['ir1pow'] = 8.00e-03
+m1d['ir1pow'] = 7.55e-03
 m1d['ir2pow'] = 8.21e-03
 m1d['ir3pow'] = 6.86e-03
 m1d['greenpow1'] = 8.33e-03
@@ -108,7 +111,7 @@ m1d['greenpow3'] = 7.05e-03
 
 #PD offset
 V0d = {}
-V0d['ir1pow'] = 2.55e-02
+V0d['ir1pow'] = 3.88e-3
 V0d['ir2pow'] = 1.19e-02
 V0d['ir3pow'] = 1.85e-02
 V0d['greenpow1'] = 8.21e-2 - 4.4e-2
@@ -373,7 +376,7 @@ class convert:
                 self.cnvcalib[ch] = lambda val: val
                 self.invcalib[ch] = lambda val: val
                 self.physlims[ch] = self.invcalib[ch]( np.array( [ np.amin(xdat), np.amax(xdat) ] ) ) 
-                self.voltlims[ch] = np.array([0., 8.2])
+                self.voltlims[ch] = np.array([0., 9.0])
                 
             elif ch == 'uvdet':
                 ### IN    :  UV detuning in MHz
@@ -458,7 +461,7 @@ class convert:
         self.physlims[ch] = o.physlims()
         self.voltlims[ch] = o.voltlims()    
 
-        ### LATTICEDEPTH to TUNNELING / WANNIERFACTOR
+        ### TUNNELING / WANNIERFACTOR to LATTICE DEPTH
         tANDu = ['t_to_V0','wF_to_V0']
         for ch in tANDu:
             ### CALIB : unity
@@ -491,9 +494,37 @@ class convert:
             self.invcalib[ch] = lambda val: val
             self.physlims[ch] = self.invcalib[ch]( np.array( [ np.amin(xdat), np.amax(xdat) ] ) ) 
             self.voltlims[ch] = np.array([0., 46.])
+
+        ### SCATTERING LENGTH to BFIELD 
+        ch = 'as_to_B' 
+        ### CALIB : unity
+        ### FS : interpolation
+        table = np.loadtxt(physpath+'ainns.dat', usecols  = (1,0))
+
+        ydat = table[:,1] # bfield (Gauss)
+        xdat = table[:,0] # scattering length (a0)
+        
+        try:
+            f = pwlinterpolate.interp1d( xdat, ydat , name = ch)
+            g = pwlinterpolate.interp1d( ydat, xdat , name = ch)
+            
+        except ValueError as e:
+            print e
+            print "Could not define piecewiwse linear nterpolation function for : \n\t%s" % d
+            exit(1)
+
+        self.fs[ch] = f
+        self.gs[ch] = g
+
+        self.cnvcalib[ch] = lambda val: val
+        self.invcalib[ch] = lambda val: val
+        self.physlims[ch] = self.invcalib[ch]( np.array( [ np.amin(xdat), np.amax(xdat) ] ) ) 
+        self.voltlims[ch] = np.array( [ np.amin(xdat), np.amax(xdat) ] ) 
+         
          
 
     def plot(self):
+        import matplotlib.pyplot as plt
         dats = glob.glob(lab + 'software/apparatus3/convert/data/*.dat')
         
         plotdat = raw_input("Do you wish to plot calibrations in .dat files? (y/n)")
@@ -639,7 +670,7 @@ class convert:
 
 
 
-dll = convert()
+dll = convert();
 
 def cnv( ch, val ):
     global dll
@@ -680,28 +711,30 @@ def scaleFactor( dat, scale ):
 
 #Run standalone to test interpolation of a table file
 if __name__ == '__main__':
-    dll.plot()
-    exit(0)
+    #~ dll.plot()
+    #~ exit(0)
 
 
     parser = argparse.ArgumentParser('physics.py')
-    parser.add_argument('datfile',action="store",type=str, help='datfile to plot')
-    parser.add_argument('xcol',action="store",type=int, help='x column index')
-    parser.add_argument('ycol',action="store",type=int, help='y column index')
-    parser.add_argument('--cnv',action="store",type=bool, help='plot cnv interpolations')
+    parser.add_argument('channel',action="store",type=str, help='Channel to convert')
+    parser.add_argument('value',action="store",type=float, help='value to convert')
+    #~ parser.add_argument('datfile',action="store",type=str, help='datfile to plot')
+    #~ parser.add_argument('xcol',action="store",type=int, help='x column index')
+    #~ parser.add_argument('ycol',action="store",type=int, help='y column index')
+    #~ parser.add_argument('--cnv',action="store",type=bool, help='plot cnv interpolations')
     args=parser.parse_args()
+    
+    print "converted value =",dll.cnv(args.channel,args.value)
+    #~ dat = np.loadtxt( args.datfile, usecols  = (args.xcol,args.ycol))
+    #~ xdat = dat[:,0]
+    #~ ydat = dat[:,1]
 
+    #~ stackdat = np.transpose(np.vstack( (xdat,xdat) ))
+    #~ itpd =  interpdat( args.datfile, args.xcol, args.ycol, stackdat)
 
-    dat = np.loadtxt( args.datfile, usecols  = (args.xcol,args.ycol))
-    xdat = dat[:,0]
-    ydat = dat[:,1]
-
-    stackdat = np.transpose(np.vstack( (xdat,xdat) ))
-    itpd =  interpdat( args.datfile, args.xcol, args.ycol, stackdat)
-
-    plt.plot( xdat, ydat, 'o', itpd[0], itpd[1], '-')
-    plt.legend(['data','cubic'], loc='best')
-    plt.show()
+    #~ plt.plot( xdat, ydat, 'o', itpd[0], itpd[1], '-')
+    #~ plt.legend(['data','cubic'], loc='best')
+    #~ plt.show()
 
 
 #
@@ -757,6 +790,11 @@ class calc:
             self.calcwfms[ch] = self.interpch(physpath+'odt.dat', 0, 1, 'odtfcpow')
             return self.calcwfms[ch]
 
+        elif ch == 'odtdepth(Er)':
+            self.prereq('odtdepth(1uK)')
+            self.calcwfms[ch] = scaleFactor( self.calcwfms['odtdepth(1uK)'], 1/1.4)
+            return self.calcwfms[ch]
+
         elif ch == 'odtdepth(100uK)':
             self.prereq('odtfcpow')
             self.calcwfms[ch] = scaleFactor(self.interpch(physpath+'odt.dat', 0, 1, 'odtfcpow'), 1/100.)
@@ -797,6 +835,18 @@ class calc:
         elif ch == 'bfield(100G)':
             self.prereq('bfield(G)')
             self.calcwfms[ch] = scaleFactor( self.calcwfms['bfield(G)'], 1/100.)
+            return self.calcwfms[ch]
+
+        ### Calculate imaging frequencies
+        elif ch == 'hfimg0(100MHz)':
+            self.prereq('bfield(G)')
+            x,y = self.calcwfms['bfield(G)'] 
+            self.calcwfms[ch] = (x, -1.*(100.0 + 163.7 - 1.414*y)/100. )
+            return self.calcwfms[ch]
+
+        elif ch == 'analoghfimg(100MHz)':
+            x,y = self.cnvInversion('analogimg')
+            self.calcwfms[ch] = (x, y/100.)
             return self.calcwfms[ch]
 
         ### Calculate scattering length

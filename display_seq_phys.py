@@ -437,7 +437,7 @@ class MainWindow(HasTraits):
     
         #Makes the physical plot
         for i, name in enumerate(self.data_physical_names):
-            analog_axis.step(self.data_physical_time[i],self.data_physical[i],ls=':',where = 'post', label = name)  
+            analog_axis.step(self.data_physical_time[i],self.data_physical[i],ls='-',lw=1.75,where = 'post', label = name)  
         
         analog_axis.axhline(0, color='black', lw=2)
         analog_axis.legend(bbox_to_anchor=(1.01, 1.01),loc=2,prop={'size':10})

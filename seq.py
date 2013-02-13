@@ -170,8 +170,8 @@ class wfmout:
 		if self.stop != None:
 			stoplen = int(math.ceil( (self.stop - self.time)/self.step))
 			if stoplen % 2 != 0:
-				print "\n---stoppping waveform at t = %.3f ms will result in an odd number of samples !!!" % (self.stop)
-				print "---an extra sample will be appended to avoid DAQmx problems"
+				#print "\n---stoppping waveform at t = %.3f ms will result in an odd number of samples !!!" % (self.stop)
+				#print "---an extra sample will be appended to avoid DAQmx problems"
 				
 				stoplen = stoplen + 1
 				
