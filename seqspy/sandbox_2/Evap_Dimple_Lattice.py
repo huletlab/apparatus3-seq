@@ -77,17 +77,11 @@ print '...Compilation = %.2f seconds\n' % (time.time()-t0)
 
 
 #########################################
-## OTHER TTL EVENTS: probekill, braggkill, rf
+## OTHER TTL EVENTS: probekill, braggkill, rf, quick2
 #########################################
 # Probe Kill
 if DL.probekill == 1:
 	s.wait(DL.probekilltime)
-	
-	if DL.kill_hfimg2 == 1 :
-		print "hfimg2 on"
-		s.wait(-50)
-		s.digichg('hfimg2',1)
-		s.wait(50)
 	
 	s.wait(-10)
 	s.digichg('prshutter',0)
@@ -95,9 +89,6 @@ if DL.probekill == 1:
 	s.digichg('probe',1)
 	s.wait(DL.probekilldt)
 	s.digichg('probe',0)
-	
-	if DL.kill_hfimg2 == 1:
-		s.digichg('hfimg2',0)
 
 	s.digichg('prshutter',1)
 	s.wait(-DL.probekilltime)
@@ -115,23 +106,22 @@ if DL.rf == 1:
 if DL.braggkill == 1:
 	s.wait( DL.braggkilltime)
 	
-	if DL.kill_hfimg2 == 1 :
-		print "hfimg2 on"
-		s.wait(-50)
-		s.digichg('hfimg2',1)
-		s.wait(50)
-	
 	s = manta.OpenShutterBragg(s,DL.shutterdelay)
 	s.digichg('bragg',1)
 	s.wait( DL.braggkilldt)
 	s.digichg('brshutter',1) # to close shutter
 	s.digichg('bragg',0)
 	
-	if DL.kill_hfimg2 == 1:
-		s.digichg('hfimg2',0)
-	
 	s.wait( -DL.braggkilldt)
 	s.wait( -DL.braggkilltime )
+
+
+# QUICK2
+if DL.quick2 == 1:
+    s.wait( DL.quick2time)
+    s.digichg('quick2',1)
+    s.wait(-DL.quick2time)
+    
 
 
 #########################################

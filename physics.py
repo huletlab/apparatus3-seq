@@ -270,27 +270,27 @@ class lattice_ch:
 #
 class convert:
     
-    def cnv(self, ch, val):
+    def cnv(self, ch, val,errorshow = 1):
         if ch not in self.fs.keys():
             
             print "Channels with defined conversions: "
             pprint.pprint(self.fs.keys())
-            
-            errormsg.box('CONVERSION : ' + ch, 'No conversion defined for this channel')
+            if errorshow:
+                errormsg.box('CONVERSION : ' + ch, 'No conversion defined for this channel')
             raise ValueError("No conversion has been defined for channel = %s" % ch )
             return None
             
         out = self.fs[ch](  self.cnvcalib[ch]( val) )
         return self.check( ch, val, out)[0]
         
-    def inv(self, ch, val):
+    def inv(self, ch, val,errorshow = 1):
         if ch not in self.fs.keys():
             
             print "Channels with defined conversions: "
             pprint.pprint(self.fs.keys())
             
-            
-            errormsg.box('CONVERSION : ' + ch, 'No conversion defined for this channel')
+            if errorshow:
+                  errormsg.box('CONVERSION : ' + ch, 'No conversion defined for this channel')
             raise ValueError("No conversion has been defined for channel = %s" % ch )
             return None
         
@@ -724,7 +724,12 @@ if __name__ == '__main__':
     #~ parser.add_argument('--cnv',action="store",type=bool, help='plot cnv interpolations')
     args=parser.parse_args()
     
-    print "converted value =",dll.cnv(args.channel,args.value)
+    if 'Phys' in args.channel:
+        ch = args.channel.split('Phys')[0]
+        print "converted value =",dll.inv(ch,args.value)
+    
+    else:
+        print "converted value =",dll.cnv(args.channel,args.value)
     #~ dat = np.loadtxt( args.datfile, usecols  = (args.xcol,args.ycol))
     #~ xdat = dat[:,0]
     #~ ydat = dat[:,1]

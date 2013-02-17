@@ -20,7 +20,11 @@ def bstr(str,report):
 	print "Boolean description not found in report: " + str
 	return 
 
+report = seqconf.savedir()+'report'+seqconf.runnumber()+'.INI'
+report = ConfigObj(report)
+
 def getreport():
+	global report
 	#The parameters are loaded from the report file
 	#~ f=open('L:/data/app3/comms/SaveDir')
 	#~ savedir=f.readline()
@@ -30,9 +34,10 @@ def getreport():
 	#~ f.close
 	#~ report=savedir+'report'+shotnum+'.INI'
 	#print(report)
-	report=seqconf.savedir()+'report'+seqconf.runnumber()+'.INI'
+	
+	##report=seqconf.savedir()+'report'+seqconf.runnumber()+'.INI'
 	#print "report path = %s" % report
-	report=ConfigObj(report)
+	##report=ConfigObj(report)
 	return report
 	
 def save_to_report( sec, key, value):
@@ -102,6 +107,14 @@ def releaseMOT(s):
 	
 	
 def shutdown(s):
+	#set the scopetrig
+	scopetrig =  float(report['SEQ']['scopetrig'])
+	current_time = s.tcur
+	if scopetrig < current_time:
+		s.wait( -current_time + scopetrig )
+		s.digichg('scopetrig',1)
+		s.wait(  current_time - scopetrig )
+		
 	#shut down everything when finished
 	s.digichg('motswitch',0)
 	s.digichg('zsshutter',1)
@@ -138,6 +151,7 @@ def shutdown(s):
 	s.digichg('analogimgttl',0)
 	s.digichg('latticeinterlockbypass', 0)
 	s.digichg('gradientfieldttl',0)
+	s.digichg('scopetrig',0)
 	return s
 	
 def setphase(s):

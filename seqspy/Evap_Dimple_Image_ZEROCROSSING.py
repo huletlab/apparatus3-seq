@@ -63,7 +63,8 @@ buffer = 20.
 s.wait(buffer)
 
 # Ramp dipole trap to new value
-odtpow = odt.odt_wave('odtpow', None, DIMPLE.analogss, volt=cpowend)
+#odtpow = odt.odt_wave('odtpow', None, DIMPLE.analogss, volt=cpowend)
+odtpow = odt.odt_wave('odtpow', cpowend, DIMPLE.analogss)
 if DIMPLE.odt_t0 > buffer :
 	odtpow.appendhold( DIMPLE.odt_t0 - buffer)
 if DIMPLE.odt_pow < 0.:

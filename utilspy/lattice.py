@@ -10,6 +10,8 @@ sys.path.append('L:/software/apparatus3/convert')
 import seqconf, wfm, gen, math, cnc, time, os, numpy, hashlib, evap, physics, errormsg, odt
 
 import shutil
+import matplotlib as mpl
+mpl.use('Agg') # This is for making the pyplot not complaining when there is no x server
 
 import matplotlib.pyplot as plt
 
@@ -18,6 +20,7 @@ from scipy import interpolate
 #GET SECTION CONTENTS
 DIMPLE = gen.getsection('DIMPLE')
 DL = gen.getsection('DIMPLELATTICE')
+ANDOR  = gen.getsection('ANDOR')
 
 
 class lattice_wave(wfm.wave):
@@ -358,7 +361,7 @@ def dimple_to_lattice(s,cpowend):
     s.wait(buffer)
 
     
-    odtpow = odt.odt_wave('odtpow', None, DL.ss, volt=cpowend)
+    odtpow = odt.odt_wave('odtpow', cpowend, DL.ss)
     if DIMPLE.odt_t0 > buffer :
         odtpow.appendhold( DIMPLE.odt_t0 - buffer)
     if DIMPLE.odt_pow < 0.:
@@ -366,7 +369,7 @@ def dimple_to_lattice(s,cpowend):
     else:
         odtpow.tanhRise( DIMPLE.odt_pow, DIMPLE.odt_dt, DIMPLE.odt_tau, DIMPLE.odt_shift)    
         
-    if DIMPLE.odt_pow < 0.0001:
+    if numpy.absolute(DIMPLE.odt_pow) < 0.0001:
         s.wait( odtpow.dt() )
         s.digichg('odtttl',0)
         s.wait(-odtpow.dt() )
@@ -380,17 +383,40 @@ def dimple_to_lattice(s,cpowend):
         rfmod.appendhold( bfield.dt() + DL.rftime )
         rfmod.linear( DL.rfvoltf, DL.rfpulsedt)
         wfms.append(rfmod)
+        
+        
+    # Kill hfimg
+    if DL.probekill ==1 or DL.braggkill ==1:
+        hfimgdelay = 40. #ms
+        analogimg = wfm.wave('analogimg', ANDOR.hfimg, DL.ss)
+        
+        if DL.probekill == 1:
+            analogimg.appendhold( bfield.dt() + DL.probekilltime - hfimgdelay)
+            analogimg.linear( DL.probekill_hfimg , 0.0)
+            analogimg.appendhold( hfimgdelay + DL.probekilldt + 3*DL.ss)
+        
+        elif DL.braggkill == 1:
+            analogimg.appendhold( bfield.dt() + DL.braggkilltime - hfimgdelay)
+            analogimg.linear( DL.braggkill_hfimg , 0.0)
+            analogimg.appendhold( hfimgdelay + DL.braggkilldt + 3*DL.ss)
+            
+        analogimg.linear( ANDOR.hfimg, 0.)
+        
+        wfms.append(analogimg)
+            
     
     duration = s.analogwfm_add(DL.ss,wfms)
     
-    if duration > DL.t0 + DL.dt:
-        s.wait( DL.t0 + DL.dt)
-        s.wait(30.0)
-        s.digichg('latticeinterlockbypass',0)
-        s.wait(-30.0)
-        s.wait(-DL.t0 - DL.dt)
-    
+        
     s.wait( duration )
+    
+    if duration > DL.t0 + DL.dt:
+        s.wait(-DL.lattice_interlock_time)
+        if DL.use_lattice_interlock == 1:
+            s.digichg('latticeinterlockbypass',0)
+        else:
+            s.digichg('latticeinterlockbypass',1)
+        s.wait( DL.lattice_interlock_time)
     
     
     return s 

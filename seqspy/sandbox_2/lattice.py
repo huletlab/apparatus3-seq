@@ -10,6 +10,8 @@ sys.path.append('L:/software/apparatus3/convert')
 import seqconf, wfm, gen, math, cnc, time, os, numpy, hashlib, evap, physics, errormsg, odt
 
 import shutil
+import matplotlib as mpl
+mpl.use('Agg') # This is for making the pyplot not complaining when there is no x server
 
 import matplotlib.pyplot as plt
 
@@ -367,7 +369,7 @@ def dimple_to_lattice(s,cpowend):
     else:
         odtpow.tanhRise( DIMPLE.odt_pow, DIMPLE.odt_dt, DIMPLE.odt_tau, DIMPLE.odt_shift)    
         
-    if DIMPLE.odt_pow < 0.0001:
+    if numpy.absolute(DIMPLE.odt_pow) < 0.0001:
         s.wait( odtpow.dt() )
         s.digichg('odtttl',0)
         s.wait(-odtpow.dt() )
@@ -391,12 +393,12 @@ def dimple_to_lattice(s,cpowend):
         if DL.probekill == 1:
             analogimg.appendhold( bfield.dt() + DL.probekilltime - hfimgdelay)
             analogimg.linear( DL.probekill_hfimg , 0.0)
-            analogimg.appendhold( hfimgdelay + DL.probekilldt)
+            analogimg.appendhold( hfimgdelay + DL.probekilldt + 3*DL.ss)
         
         elif DL.braggkill == 1:
             analogimg.appendhold( bfield.dt() + DL.braggkilltime - hfimgdelay)
             analogimg.linear( DL.braggkill_hfimg , 0.0)
-            analogimg.appendhold( hfimgdelay + DL.braggkilldt)
+            analogimg.appendhold( hfimgdelay + DL.braggkilldt + 3*DL.ss)
             
         analogimg.linear( ANDOR.hfimg, 0.)
         
@@ -405,14 +407,16 @@ def dimple_to_lattice(s,cpowend):
     
     duration = s.analogwfm_add(DL.ss,wfms)
     
-    if duration > DL.t0 + DL.dt:
-        s.wait( DL.t0 + DL.dt)
-        s.wait(30.0)
-        s.digichg('latticeinterlockbypass',0)
-        s.wait(-30.0)
-        s.wait(-DL.t0 - DL.dt)
-    
+        
     s.wait( duration )
+    
+    if duration > DL.t0 + DL.dt:
+        s.wait(-DL.lattice_interlock_time)
+        if DL.use_lattice_interlock == 1:
+            s.digichg('latticeinterlockbypass',0)
+        else:
+            s.digichg('latticeinterlockbypass',1)
+        s.wait( DL.lattice_interlock_time)
     
     
     return s 

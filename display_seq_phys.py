@@ -416,7 +416,7 @@ class MainWindow(HasTraits):
 
         #Makes the digital plot
         for i, name in enumerate(self.data_digi_names):
-            digi_axis.step(self.data_digi_time[i],self.data_digi[i],where = 'post', label = name)
+            digi_axis.step(self.data_digi_time[i],self.data_digi[i],lw='2.0',where = 'post', label = name)
             digi_ticks.append( - (i+0.5)*10./len(self.data_digi_names))
             digi_axis.axhline(- (i+1)*10./len(self.data_digi_names),color='grey', lw=1.5)
 

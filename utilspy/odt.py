@@ -346,6 +346,9 @@ def odt_evap_field_free(toENDBFIELD, scale =1.0):
 	#---Setup ODT ramp
 	odtpow = odt_wave('odtpow', ODT.odtpow, EVAP.evapss)
 	odtpow.appendhold( odtfree )
+	
+	image = DIMPLE.image if DIMPLE.image <= EVAP.image else EVAP.image
+	
 	### SELECT EVAP TRAJECTORY HERE###
 	finalcpow = odtpow.Evap8(\
 							ODT.odtpow, \
@@ -357,7 +360,7 @@ def odt_evap_field_free(toENDBFIELD, scale =1.0):
 							EVAP.t2, \
 							EVAP.tau2, \
 							EVAP.smoothdt, \
-							EVAP.image, \
+							image, \
 							EVAP.scale \
 							)
 	#Here, go ahead and save the finalcpow to the report
@@ -373,10 +376,10 @@ def odt_evap_field_free(toENDBFIELD, scale =1.0):
 	bfield.extend(field_ramp_time + odtfree)
 	bfield.linear(EVAP.fieldrampfinal,field_ramp_dt)
 	
-	if((field_ramp_time+field_ramp_dt)<EVAP.image*scale):
-		bfield.extend(EVAP.image*scale)
+	if((field_ramp_time+field_ramp_dt)<image*scale):
+		bfield.extend(image*scale)
 	else:
-		bfield.chop(EVAP.image*scale)
+		bfield.chop(image*scale)
 	
 	#---Setup ipganalog ramp
 	ipganalog = ipg_wave('ipganalog', 10., EVAP.evapss)
@@ -485,15 +488,16 @@ def crossbeam_dimple_evap(s, toENDBFIELD):
 		s.wait(-50.0)
 		s.wait(-EVAP.fieldrampt0 - odtfree)
 	
-	s.wait(EVAP.free - EVAP.buffer - toENDBFIELD)
-	s.wait(EVAP.image)
+	s.wait(odtfree)
 	
-	if DIMPLE.image >= EVAP.image:
-		s.wait( DIMPLE.image - EVAP.image)
-	else:
-		s.wait( DIMPLE.image - EVAP.image)
-		cpowend = odtpow.y[numpy.floor( (DIMPLE.image + odtfree) / EVAP.evapss )]
-		s.stop_analog() 
+	s.wait(DIMPLE.image)
+	
+	#~ if DIMPLE.image >= EVAP.image:
+		#~ s.wait( DIMPLE.image - EVAP.image)
+	#~ else:
+		#~ s.wait( DIMPLE.image - EVAP.image)
+		#~ cpowend = odtpow.y[numpy.floor( (DIMPLE.image + odtfree) / EVAP.evapss )]
+		#~ s.stop_analog() 
 		
 	
 	print "...Evap cpowend  = %f" % cpowend
