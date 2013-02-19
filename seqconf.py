@@ -26,6 +26,8 @@ def savedir():
     f=open(lab+"data/app3/comms/SaveDir")
     savedir=f.readline()
     f.close()
+    if os.name == 'posix':
+        savedir = savedir.replace("L:","/lab").replace("\\","/")
     return savedir
 
 def runnumber():

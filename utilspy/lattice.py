@@ -30,6 +30,52 @@ class lattice_wave(wfm.wave):
 		Several methods are added that allow doing special ramps
 		"""
 
+def interpolate_ramp(rampstr, yoffset=0.):
+    pts=[]
+       
+    for spl in  ','.join(rampstr).split('--'):
+        for pt in spl.split('~~'):
+            pt = pt.strip('()').split(',')
+            pts.append((float(pt[0]), float(pt[1])))
+        pts.append('--')
+
+    
+    newpts=[]
+    defpts=[]
+    linear = False
+    for i,pt in enumerate(pts):
+        ### Force zero slope at beginning
+        if not isinstance( pt, str):
+            defpts = defpts + [pt]
+        if i==0:
+            prept = [ (pt[0]-10*j,pt[1]) for j in reversed(range(3)) ]
+            newpts = prept 
+            continue
+        if pt == '--':
+            linear = True
+            continue
+        if linear == True:
+            n=5.
+            q = newpts[-1]
+            dx = pt[0]-q[0]
+            dy = pt[1]-q[1]
+            m = dy/dx
+            linepts = [ ( q[0] + dx*j/5., q[1] + m*dx*j/5.)  for j in range(1,int(n)) ]
+            newpts = newpts + linepts + [pt]
+            linear = False
+        else:
+            newpts = newpts + [pt]
+    
+    
+    xy = numpy.array( [ [pt[0], pt[1] + yoffset] for pt in newpts] )
+    defxy = numpy.array( [ [pt[0], pt[1] + yoffset] for pt in defpts] )
+        
+    
+    
+    return interpolate.InterpolatedUnivariateSpline( xy[:,0], xy[:,1],k=2), xy, defxy
+        
+
+
 
 def dimple_to_lattice(s,cpowend):
     
@@ -83,25 +129,25 @@ def dimple_to_lattice(s,cpowend):
     lw=1.5
     labelx=-0.12
     legsz =10.
+    
+    xymew=0.5
+    xyms=9
 
     ax0.plot( x_v0, v0, 'b', lw=2.5, label='Lattice depth')
     
     ###########################################
     #### USER DEFINED RAMPS: IR, GR, and U ###
-    ###########################################
+    ###########################################      
     
     # Define how we want to ramp up the IR power
-    ir = numpy.array( [float(i) for i in DL.irpow ] )
-    ir = ir.reshape( (ir.size/2, 2 ))
-    ir[:,1] = ir[:,1] + DIMPLE.ir1pow
-    ir_spline = interpolate.InterpolatedUnivariateSpline( ir[:,0], ir[:,1], k=2) 
-    ir_interp = interpolate.interp1d( ir[:,0], ir[:,1] ) 
+    ir_ramp, xy_ir, ir =  interpolate_ramp( DL.irpow, yoffset=DIMPLE.ir1pow)
     
     dt_ir = numpy.amax( ir[:,0]) - numpy.amin( ir[:,0])
     N_ir = int(math.floor( dt_ir / DL.ss ))
     x_ir = numpy.arange( dt_ir/N_ir, dt_ir, dt_ir/N_ir)
     
-    y_ir = ir_spline(x_ir) 
+    #y_ir = ir_spline(x_ir) 
+    y_ir = ir_ramp(x_ir)
     
     if v0.size > y_ir.size:
         y_ir = numpy.append(y_ir, (v0.size-y_ir.size)*[y_ir[-1]])
@@ -126,24 +172,19 @@ def dimple_to_lattice(s,cpowend):
         errormsg.box('LATTICE LOADING ERROR',msg)
         exit(1)
     
-    ax0.plot(ir[:,0],ir[:,1],'.', color='darkorange')#, label='irpow dat')
-    ax0.plot(x_ir, ir_spline(x_ir),':',color='darkorange')#,label='spline')
+    ax0.plot(xy_ir[:,0],xy_ir[:,1], 'x', color='darkorange', ms=5.)
+    ax0.plot(ir[:,0],ir[:,1], '.', mew=xymew, ms=xyms, color='darkorange')
     ax0.plot(x_v0, y_ir, lw=lw, color='darkorange',label='irpow')
-    #ax0.plot(x_ir, ir_interp(x_ir),'--', color='darkorange',label='interp')
     
     
     # Define how we want to ramp up the GR power
-    gr = numpy.array( [float(i) for i in DL.grpow ] )
-    gr = gr.reshape( (gr.size/2, 2 ))
-    gr[:,1] = gr[:,1] + DIMPLE.gr1pow
-    gr_spline = interpolate.InterpolatedUnivariateSpline( gr[:,0], gr[:,1], k=2) 
-    gr_interp = interpolate.interp1d( gr[:,0], gr[:,1] ) 
+    gr_ramp, xy_gr, gr =  interpolate_ramp( DL.grpow, yoffset=DIMPLE.gr1pow)
     
     dt_gr = numpy.amax( gr[:,0]) - numpy.amin( gr[:,0])
     N_gr = int(math.floor( dt_gr / DL.ss ))
     x_gr = numpy.arange( dt_gr/N_gr, dt_gr, dt_gr/N_gr)
     
-    y_gr = gr_spline(x_gr) 
+    y_gr = gr_ramp(x_gr) 
     
     if v0.size > y_gr.size:
         y_gr = numpy.append(y_gr, (v0.size-y_gr.size)*[y_gr[-1]])
@@ -154,14 +195,13 @@ def dimple_to_lattice(s,cpowend):
         msg = "GRPOW ERROR: number of samples in GR ramp and V0 ramp does not match!"
         errormsg.box('LATTICE LOADING ERROR',msg)
         exit(1)
-        
-    
-    ax0.plot(gr[:,0],gr[:,1],'.g')#, label='grpow dat')
-    ax0.plot(x_gr, gr_spline(x_gr),':g')#,':g',label='spline')
+
+
+    ax0.plot(xy_gr[:,0],xy_gr[:,1], 'x', color='green', ms=5.)
+    ax0.plot(gr[:,0],gr[:,1],'.', mew=xymew, ms=xyms, color='green')#, label='grpow dat')
     ax0.plot(x_v0, y_gr, lw=lw, color='green', label='grpow')
-    #ax0.plot(x_gr, gr_interp(x_gr),'g--',label='interp')
     
-    ax0.set_xlim(right= ax0.get_xlim()[1]*1.1)   
+    ax0.set_xlim(left=-10., right= ax0.get_xlim()[1]*1.1)   
     plt.setp( ax0.get_xticklabels(), visible=False)
     ylim = ax0.get_ylim()
     extra = (ylim[1]-ylim[0])*0.1
@@ -174,16 +214,13 @@ def dimple_to_lattice(s,cpowend):
     
     
     # Define how we want to ramp up the scattering length (control our losses)
-    a_s = numpy.array( [float(i) for i in DL.a_s ] )
-    a_s = a_s.reshape( (a_s.size/2, 2 ))
-    a_s_spline = interpolate.InterpolatedUnivariateSpline( a_s[:,0], a_s[:,1], k=2) 
-    a_s_interp = interpolate.interp1d( a_s[:,0], a_s[:,1] ) 
+    a_s_ramp, xy_a_s, a_s =  interpolate_ramp( DL.a_s)
+    
     
     dt_a_s = numpy.amax( a_s[:,0]) - numpy.amin( a_s[:,0])
     N_a_s = int(math.floor( dt_a_s / DL.ss ))
     x_a_s = numpy.arange( dt_a_s/N_a_s, dt_a_s, dt_a_s/N_a_s)
-    
-    y_a_s = a_s_spline(x_a_s) 
+    y_a_s = a_s_ramp(x_a_s)
     
     if v0.size > y_a_s.size:
         y_a_s = numpy.append(y_a_s, (v0.size-y_a_s.size)*[y_a_s[-1]])
@@ -196,8 +233,9 @@ def dimple_to_lattice(s,cpowend):
         exit(1)
     
     
-    ax1.plot(a_s[:,0],a_s[:,1]/100.,'.', color='#C10087')#, label='a_s/t dat')
-    ax1.plot(x_a_s, a_s_spline(x_a_s)/100.,':', color='#C10087')#,label='spline')
+    
+    ax1.plot(xy_a_s[:,0],xy_a_s[:,1]/100., 'x', color='#C10087', ms=5.)
+    ax1.plot(a_s[:,0],a_s[:,1]/100., '.', mew=xymew, ms=xyms, color='#C10087')
     ax1.plot(x_v0, y_a_s/100., lw=lw, color='#C10087', label=r'$a_s\mathrm{(100 a_{0})}$')
     ax1.set_ylabel(r'$a_s\mathrm{(100 a_{0})}$',size=16, labelpad=0)
     ax1.yaxis.set_label_coords(labelx, 0.5)
@@ -318,7 +356,7 @@ def dimple_to_lattice(s,cpowend):
     ax6.set_xlabel('time (ms)')
 
     figfile = seqconf.seqtxtout().split('.')[0]+'_latticeRamp.png'    
-    plt.savefig(figfile , dpi=100 )
+    plt.savefig(figfile , dpi=120 )
     
     shutil.copyfile( figfile,  seqconf.savedir() + 'expseq' + seqconf.runnumber() + '_latticeRamp.png')
     #plt.savefig( seqconf.savedir() + 'expseq' + seqconf.runnumber() + '_latticeRamp.png', dpi=120)
