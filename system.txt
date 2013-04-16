@@ -51,7 +51,7 @@ PXI1Slot8/port0/line0   analogimgttl		0
 PXI1Slot8/port0/line1   latticeinterlockbypass		0
 PXI1Slot8/port0/line2   gradientfieldttl		0
 PXI1Slot8/port0/line3   scopetrig		0
-PXI1Slot8/port0/line4   DG_NC4		0
+PXI1Slot8/port0/line4   cameratrig2		0
 PXI1Slot8/port0/line5   DG_NC5		0
 PXI1Slot8/port0/line6   DG_NC6		0
 PXI1Slot8/port0/line7   DG_NC7		0

@@ -90,7 +90,7 @@ def AndorPictureWithClear(s,stepsize,exp,light,flash):
 	#returns the sequence at t=0 for the next picture
 	return s, kexp/1000.+shifttime+preexp+exp+postexp-kexp/1000.+trigpulse
 
-def AndorKinetics(s,exp,light,flash):
+def AndorKinetics(s,exp,light,flash,trigger='cameratrig'):
 	logic = 1
 	
 	if logic == 0:
@@ -101,6 +101,7 @@ def AndorKinetics(s,exp,light,flash):
 		
 	#print s.digital_chgs_str(1000,100000.,['cameratrig','probe','odtttl','prshutter'])
 
+	
 		
 	#Shine probe light and return to t=0
 	aoSHUT=0.0 #full-on time for the probe ao
@@ -112,12 +113,17 @@ def AndorKinetics(s,exp,light,flash):
 	
 	#print s.digital_chgs_str(1000,100000.,['cameratrig','probe','odtttl','prshutter'])
 	
-	preexp = 0.5
+	
+	if trigger == 'cameratrig2':
+		preexp = 0.006
+	else:
+		preexp = 0.024
+
 	s.wait(-preexp)
-	s.digichg('cameratrig',1)
+	s.digichg(trigger,1)
 	trigpulse=0.4
 	s.wait(trigpulse)
-	s.digichg('cameratrig',0)
+	s.digichg(trigger,0)
 	s.wait(preexp-trigpulse)
 	
 	#print s.digital_chgs_str(1000,100000.,['cameratrig','probe','odtttl','prshutter'])
@@ -125,7 +131,7 @@ def AndorKinetics(s,exp,light,flash):
 	return s
 
 
-def KineticSeries4_SmartBackground(s, exp, light, noatoms, bg):
+def KineticSeries4_SmartBackground(s, exp, light, noatoms, bg,trigger='cameratrig'):
     #Takes a kinetic series of 4 exposures:  atoms, noatoms, atomsref, noatomsref
     
     #print s.digital_chgs_str(1000,100000.,['cameratrig','probe','odtttl','prshutter'])
@@ -146,7 +152,7 @@ def KineticSeries4_SmartBackground(s, exp, light, noatoms, bg):
         
     
     #PICTURE OF ATOMS
-    s=AndorKinetics(s,exp,light,1) 
+    s=AndorKinetics(s,exp,light,1,trigger) 
 
 
     #print s.digital_chgs_str(1000,100000.,['cameratrig','probe','odtttl','prshutter'])
@@ -172,7 +178,7 @@ def KineticSeries4_SmartBackground(s, exp, light, noatoms, bg):
     s.wait(noatoms)
     
     #PICTURE OF BACKGROUND
-    s=AndorKinetics(s,exp,light,1)
+    s=AndorKinetics(s,exp,light,1,trigger)
     
     s.wait(noatoms*1)
     s.digichg('odtttl',0)
@@ -184,7 +190,7 @@ def KineticSeries4_SmartBackground(s, exp, light, noatoms, bg):
     s.digichg('greenttl3',0)
     s.wait(noatoms*3)
     
-    s.digichg('camerashut',0)
+    s.digichg('camerashut',0) # There is no camerashut in the systems now, we took take away a while ago 03/19/2013
     s.digichg('prshutter',1)
     #REPRODUCE THE ABOVE TO TAKE REFERENCE IMAGES: flash=0
     s.wait(500) #Allow generous time for camera to complete a keep clean cycle
@@ -195,7 +201,7 @@ def KineticSeries4_SmartBackground(s, exp, light, noatoms, bg):
         s=OpenShuttersFluor(s)
     
     #PICTURE OF ATOMS
-    s=AndorKinetics(s,exp,light,0)
+    s=AndorKinetics(s,exp,light,0,trigger)
     
     #SHUT DOWN TRAP, THEN TURN BACK ON FOR SAME BACKGROUND
     #minimum time for no atoms is given by max trigger period in Andor settings
@@ -203,14 +209,14 @@ def KineticSeries4_SmartBackground(s, exp, light, noatoms, bg):
     s.wait(noatoms)
     s.wait(noatoms)
     #PICTURE OF BACKGROUND
-    s=AndorKinetics(s,exp,light,0)
+    s=AndorKinetics(s,exp,light,0,trigger)
     
     tf = s.tcur
     return s, tf-t0
 
 
 
-def KineticSeries4(s, exp, light, noatoms, trap):
+def KineticSeries4(s, exp, light, noatoms, trap,trigger='cameratrig'):
     #Takes a kinetic series of 4 exposures:  atoms, noatoms, atomsref, noatomsref
     
     #print s.digital_chgs_str(1000,100000.,['cameratrig','probe','odtttl','prshutter'])
@@ -226,7 +232,7 @@ def KineticSeries4(s, exp, light, noatoms, trap):
     #print s.digital_chgs_str(1000,100000.,['cameratrig','probe','odtttl','prshutter'])
     
     #PICTURE OF ATOMS
-    s=AndorKinetics(s,exp,light,1)
+    s=AndorKinetics(s,exp,light,1,trigger)
     
     #print s.digital_chgs_str(1000,100000.,['cameratrig','probe','odtttl','prshutter'])
     
@@ -247,10 +253,10 @@ def KineticSeries4(s, exp, light, noatoms, trap):
     s.digichg('odtttl',trap)
     s.wait(noatoms)
     #PICTURE OF BACKGROUND
-    s=AndorKinetics(s,exp,light,1)
+    s=AndorKinetics(s,exp,light,1,trigger)
     
     s.wait(noatoms*4)
-    s.digichg('camerashut',0)
+    s.digichg('camerashut',0) 
     s.digichg('prshutter',1)
     #REPRODUCE THE ABOVE TO TAKE REFERENCE IMAGES: flash=0
     s.wait(500) #Allow generous time for camera to complete a keep clean cycle
@@ -261,7 +267,7 @@ def KineticSeries4(s, exp, light, noatoms, trap):
         s=OpenShuttersFluor(s)
     
     #PICTURE OF ATOMS
-    s=AndorKinetics(s,exp,light,0)
+    s=AndorKinetics(s,exp,light,0,trigger)
     
     #SHUT DOWN TRAP, THEN TURN BACK ON FOR SAME BACKGROUND
     #minimum time for no atoms is given by max trigger period in Andor settings
@@ -269,7 +275,7 @@ def KineticSeries4(s, exp, light, noatoms, trap):
     s.wait(noatoms)
     s.wait(noatoms)
     #PICTURE OF BACKGROUND
-    s=AndorKinetics(s,exp,light,0)
+    s=AndorKinetics(s,exp,light,0,trigger)
     
     tf = s.tcur
     return s, tf-t0

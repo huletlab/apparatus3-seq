@@ -19,7 +19,7 @@ t0=time.time()
 import math
  
 import seq, wfm, gen, cnc, odt, andor, highfield_uvmot, manta, lattice
-
+from bfieldwfm import gradient_wave
 #REPORT
 report=gen.getreport()
 
@@ -47,6 +47,11 @@ s.digichg('hfimg',1)
 if ANDOR.analoghfimg == 1:
 	s.digichg('analogimgttl',1)
 
+if EVAP.andor2 == 1:
+	print "\n...SEQ:camera will be modified  in report"
+	print "\tNEW  SEQ:camera = andor,andor2\n" 
+	gen.save_to_report('SEQ','camera', 'andor,andor2') 
+
 
 
 # Do CNC, UVMOT, and field ramps
@@ -62,22 +67,13 @@ s, cpowend = odt.crossbeam_dimple_evap(s, toENDBFIELD)
 buffer = 20.
 s.wait(buffer)
 
-# Ramp dipole trap to new value
-#odtpow = odt.odt_wave('odtpow', None, DIMPLE.analogss, volt=cpowend)
-odtpow = odt.odt_wave('odtpow', cpowend, DIMPLE.analogss)
-if DIMPLE.odt_t0 > buffer :
-	odtpow.appendhold( DIMPLE.odt_t0 - buffer)
-if DIMPLE.odt_pow < 0.:
-	odtpow.appendhold( DIMPLE.odt_dt)
-else:
-	odtpow.tanhRise( DIMPLE.odt_pow, DIMPLE.odt_dt, DIMPLE.odt_tau, DIMPLE.odt_shift)
 
 
 # Go to scattering length zero-crossing
 fieldF = EVAP.fieldrampfinal if DIMPLE.image > EVAP.fieldrampt0 else FB.bias
 bfield = wfm.wave('bfield', fieldF, DIMPLE.analogss)
-bfield.extend( odtpow.dt() ) 
-bfield.appendhold( DIMPLE.zct0 )
+if DIMPLE.zct0 > buffer:
+    bfield.appendhold( DIMPLE.zct0 - buffer)
 bfield.linear(ZC.zcbias, ZC.zcrampdt)
 bfield.appendhold(ZC.zcdt)
 
@@ -88,11 +84,11 @@ bfield.appendhold(ZC.zcdt)
 #~ shunt.appendhold(ZC.zcdt)
 
 # Add waveforms
-gradient = odt.gradient_wave('gradientfield', 0.0, bfield.ss)
+gradient = gradient_wave('gradientfield', 0.0, bfield.ss,volt=0)
 gradient.follow( bfield)
-s.analogwfm_add(DIMPLE.analogss,[odtpow,bfield,gradient])
+s.analogwfm_add(DIMPLE.analogss,[bfield,gradient])
 
-s.wait( odtpow.dt())
+s.wait( bfield.dt())
 
 if math.fabs(DIMPLE.odt_pow) < 0.001:
     s.digichg('odtttl',0)
@@ -144,22 +140,29 @@ s.wait(DIMPLE.tof)
 ## PICTURES
 #########################################
 
+#INDICATE WHICH CHANNELS ARE TO BE CONSIDERED FOR THE BACKGROUND
+bg = ['odtttl','irttl1','irttl2','irttl3','greenttl1','greenttl2','greenttl3']
+bgdict={}
+for ch in bg:
+    bgdict[ch] = s.digistatus(ch)
+
 
 #TAKE PICTURES
 light = 'probe'
 #light = 'motswitch'
 #light = 'bragg'
-if DIMPLE.tof <= 0.0:
-    trap_on_picture = 1
-else:
-    trap_on_picture = 0
+
 kinetics = gen.bstr('Kinetics',report)
 print '...kinetics = ' + str(kinetics)
 if kinetics == True:
-    s,SERIESDT = andor.KineticSeries4(s,ANDOR.exp,light,ANDOR.noatoms, trap_on_picture)
+	s,SERIESDT = andor.KineticSeries4_SmartBackground(s,ANDOR.exp, light,ANDOR.noatoms, bg,trigger='cameratrig')
+	if EVAP.andor2 == 1:
+		s.wait(-SERIESDT)
+		s,SERIESDT = andor.KineticSeries4_SmartBackground(s,ANDOR.exp, light,ANDOR.noatoms, bg,trigger='cameratrig2')
 else:
-    s,SERIESDT = andor.FKSeries2(s,SEQ.stepsize,ANDOR.exp,light,ANDOR.noatoms, trap_on_picture)
-
+	if EVAP.andor2 == 1:
+		sys.exit("Warning! The part of code with andor2 and kinetcs off has not been done.")
+	s,SERIESDT = andor.FKSeries2(s,SEQ.stepsize,ANDOR.exp,light,ANDOR.noatoms, trap_on_picture)
 
 
 #After taking a picture sequence returns at time of the last probe strobe

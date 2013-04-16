@@ -13,7 +13,7 @@ def MantaPicture(s, texp, probe, signal=1):
     s.digichg(probe,signal)
     s.wait(texp)
     s.digichg(probe,0)
-    s.wait(-probedelay-texp)
+    s.wait(-texp)
     return s
     
 def OpenShuttersFluorMOT(s):

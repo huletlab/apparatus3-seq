@@ -3,12 +3,11 @@
 ###########################################
 
 import sys
-sys.path.append('L:/software/apparatus3/seq/seq')
-sys.path.append('L:/software/apparatus3/seq/utilspy')
-sys.path.append('L:/software/apparatus3/seq/seqspy')
-sys.path.append('L:/software/apparatus3/convert')
-import seqconf, wfm, gen, math, cnc, time, os, numpy, hashlib, evap, physics, errormsg, odt
-
+#~ sys.path.append('L:/software/apparatus3/seq/seq')
+#~ sys.path.append('L:/software/apparatus3/seq/utilspy')
+#~ sys.path.append('L:/software/apparatus3/seq/seqspy')
+#~ sys.path.append('L:/software/apparatus3/convert')
+import seqconf, wfm, gen, math, cnc, time, os, numpy, hashlib, evap, physics, errormsg, odt, bfieldwfm
 import shutil
 import matplotlib as mpl
 mpl.use('Agg') # This is for making the pyplot not complaining when there is no x server
@@ -16,11 +15,17 @@ mpl.use('Agg') # This is for making the pyplot not complaining when there is no 
 import matplotlib.pyplot as plt
 
 from scipy import interpolate
+from bfieldwfm import gradient_wave
 
 #GET SECTION CONTENTS
 DIMPLE = gen.getsection('DIMPLE')
 DL = gen.getsection('DIMPLELATTICE')
 ANDOR  = gen.getsection('ANDOR')
+MANTA  = gen.getsection('MANTA')
+
+
+
+
 
 
 class lattice_wave(wfm.wave):
@@ -85,7 +90,7 @@ def dimple_to_lattice(s,cpowend):
     tau = DL.tau
     shift = DL.shift
     
-    N0 = int(math.floor( DL.t0/ DL.ss))
+    N0 = 0
     
     N = int(math.floor( dt/ DL.ss))
     x = numpy.arange(dt/N, dt, dt/N)
@@ -93,8 +98,13 @@ def dimple_to_lattice(s,cpowend):
     shift = dt/2. + shift*dt/2.
     
     # Define how we want to ramp up the lattice depth
-    v0 = 0. + DL.latticeV0 * ( (1+numpy.tanh((x-shift)/tau)) - (1+numpy.tanh((-shift)/tau)) )\
-                        / ( (1+numpy.tanh((dt-shift)/tau)) - (1+numpy.tanh((-shift)/tau)) )
+    v0_ramp, xy_v0, v0set =  interpolate_ramp( DL.latticeV0)
+    
+    
+    v0  = v0_ramp(x)
+    
+    #v0 = 0. + DL.latticeV0 * ( (1+numpy.tanh((x-shift)/tau)) - (1+numpy.tanh((-shift)/tau)) )\
+    #                    / ( (1+numpy.tanh((dt-shift)/tau)) - (1+numpy.tanh((-shift)/tau)) )
                         
     NH = int(math.floor( DL.dthold/ DL.ss))
     
@@ -128,12 +138,15 @@ def dimple_to_lattice(s,cpowend):
     
     lw=1.5
     labelx=-0.12
-    legsz =10.
+    legsz =8.
     
     xymew=0.5
     xyms=9
 
     ax0.plot( x_v0, v0, 'b', lw=2.5, label='Lattice depth')
+    ax0.plot(xy_v0[:,0],xy_v0[:,1], 'x', color='blue', ms=5.)
+    ax0.plot(v0set[:,0],v0set[:,1], '.', mew=xymew, ms=xyms, color='blue')
+    
     
     ###########################################
     #### USER DEFINED RAMPS: IR, GR, and U ###
@@ -340,7 +353,7 @@ def dimple_to_lattice(s,cpowend):
     
     
     ax6.plot( x_v0, (tunneling_Er / U_over_t), lw=lw, color='#25D500', label=r'$t^{2}/U\,(E_{r)}$')
-    ax6.set_yscale('log')
+    #ax6.set_yscale('log')
     
     ax6.set_xlim( ax0.get_xlim()) 
     ylim = ax6.get_ylim()
@@ -358,6 +371,39 @@ def dimple_to_lattice(s,cpowend):
     figfile = seqconf.seqtxtout().split('.')[0]+'_latticeRamp.png'    
     plt.savefig(figfile , dpi=120 )
     
+    #Save all ramps to a txt file for later plotting. 
+    datfile = seqconf.seqtxtout().split('.')[0]+'_latticeRamp.dat'
+    allRamps = numpy.transpose(numpy.vstack((x_v0, v0, y_ir, y_gr, y_a_s, alpha, alpha_desired, \
+                                    tunneling_kHz, U_over_t, bfieldG)))
+    header = '# Column index'
+    header = header + '\n#\t0\t' + 'time(ms)'
+    header = header + '\n#\t1\t' + 'Lattice Depth (Er)'
+    header = header + '\n#\t2\t' + 'Ir power (Er)'
+    header = header + '\n#\t3\t' + 'GR power (Er)'
+    header = header + '\n#\t4\t' + 'a_s (a0)'
+    header = header + '\n#\t5\t' + 'alpha - advance'
+    header = header + '\n#\t6\t' + 'alpha - desired'
+    header = header + '\n#\t7\t' + 'tunneling (kHz)'
+    header = header + '\n#\t8\t' + 'U/t'
+    header = header + '\n#\t9\t' + 'bfield (Gauss)'
+    header = header + '\n'
+    
+    numpy.savetxt( datfile, allRamps)
+    
+    with open(datfile, 'w') as f:
+        X = numpy.asarray( allRamps )
+        f.write(bytes(header))
+        
+        format = '%.6e'
+        ncol = X.shape[1]
+        format = [format ,] *ncol
+        format = ' '.join(format)
+        
+        newline = '\n'
+        for row in X:
+            f.write(numpy.compat.asbytes(format % tuple(row) + newline))
+
+    
     shutil.copyfile( figfile,  seqconf.savedir() + 'expseq' + seqconf.runnumber() + '_latticeRamp.png')
     #plt.savefig( seqconf.savedir() + 'expseq' + seqconf.runnumber() + '_latticeRamp.png', dpi=120)
     
@@ -372,47 +418,83 @@ def dimple_to_lattice(s,cpowend):
         n = filter( str.isdigit, ch)[0] 
         w = wfm.wave(ch, 0.0, DL.ss)  #Start value will be overrriden
         w.y = physics.cnv( ch, y_ir )
+        if DL.lock:
+            endval = w.y[-1]
+            w.insertlin_cnv(DL.lock_Er, DL.lock_dtUP, DL.lock_t0 )
+            if DL.camera == 'manta' or DL.camera == 'both':
+                w.appendhold( MANTA.exp + 1.0 ) 
+                w.insertlin( endval, 0., 0.)
+                w.appendhold( MANTA.noatoms - MANTA.exp - 1.0)
+                w.insertlin_cnv(DL.lock_Er, DL.lock_dtUP, DL.lock_t0 )
+        elif DL.lightassist_lock:
+            endval = w.y[-1]
+            w.linear(DL.lightassist_lockpowIR, DL.lightassist_lockdtUP)
+            w.appendhold( DL.lightassist_t0 + DL.lightassistdt )
+            if DL.endvalIR >= 0.:
+                w.linear(  DL.endvalIR, DL.lightassist_lockdtDOWN)
+            else:
+                w.linear(  None, DL.lightassist_lockdtDOWN, volt=endval)
         wfms.append(w)
         
     for ch in ['greenpow1','greenpow2','greenpow3']:
         n = filter( str.isdigit, ch)[0] 
         w = wfm.wave(ch, 0.0, DL.ss)  #Start value will be overrriden
         w.y = physics.cnv( ch, y_gr )
+        if DL.lightassist_lock:
+            endval = w.y[-1]
+            w.linear(DL.lightassist_lockpowGR, DL.lightassist_lockdtUP)
+            w.appendhold( DL.lightassist_t0 + DL.lightassistdt )
+            if DL.endvalGR >= 0.:
+                w.linear(  DL.endvalGR, DL.lightassist_lockdtDOWN)
+            else:
+                w.linear(  None, DL.lightassist_lockdtDOWN, volt=endval)
         wfms.append(w)
         
     for ch in ['lcr1','lcr2','lcr3']:
         n = filter( str.isdigit, ch)[0] 
         w = wfm.wave(ch, 0.0, DL.ss)  #Start value will be overrriden
-        w.y = physics.cnv( ch, alpha )
+        force = DL.__dict__['force_'+ch]
+        if force >= 0 and force <=1:
+            print "...Forcing LCR%s = %f during lattice ramp" % (n,force)
+            w.y = physics.cnv( ch, numpy.array( alpha.size*[force] )  )
+        else:
+            w.y = physics.cnv( ch, alpha )
         wfms.append(w)
     
 
     
     bfieldA = bfieldG/6.8
     
-
+    ##ADD field
     bfield = wfm.wave('bfield', 0.0, DL.ss)
     bfield.y = physics.cnv( 'bfield', bfieldA)
     wfms.append(bfield)
     
+    
+    ##ADD gradient field
+    gradient = gradient_wave('gradientfield', 0.0, DL.ss,volt = 0.0)
+    gradient.follow(bfield)
+    wfms.append(gradient)
+    
+    
     buffer = 20.
     s.wait(buffer)
-
     
-    odtpow = odt.odt_wave('odtpow', cpowend, DL.ss)
-    if DIMPLE.odt_t0 > buffer :
-        odtpow.appendhold( DIMPLE.odt_t0 - buffer)
-    if DIMPLE.odt_pow < 0.:
-        odtpow.appendhold( DIMPLE.odt_dt)
-    else:
-        odtpow.tanhRise( DIMPLE.odt_pow, DIMPLE.odt_dt, DIMPLE.odt_tau, DIMPLE.odt_shift)    
+    
+    #~ odtpow = odt.odt_wave('odtpow', cpowend, DL.ss)
+    #~ if DIMPLE.odt_t0 > buffer :
+        #~ odtpow.appendhold( DIMPLE.odt_t0 - buffer)
+    #~ if DIMPLE.odt_pow < 0.:
+        #~ odtpow.appendhold( DIMPLE.odt_dt)
+    #~ else:
+        #~ odtpow.tanhRise( DIMPLE.odt_pow, DIMPLE.odt_dt, DIMPLE.odt_tau, DIMPLE.odt_shift)    
         
-    if numpy.absolute(DIMPLE.odt_pow) < 0.0001:
-        s.wait( odtpow.dt() )
-        s.digichg('odtttl',0)
-        s.wait(-odtpow.dt() )
+    #~ if numpy.absolute(DIMPLE.odt_pow) < 0.0001:
+        #~ s.wait( odtpow.dt() )
+        #~ s.digichg('odtttl',0)
+        #~ s.wait(-odtpow.dt() )
     
-    wfms.append(odtpow)
+    #~ wfms.append(odtpow)
         
     
     # RF sweep
@@ -421,43 +503,120 @@ def dimple_to_lattice(s,cpowend):
         rfmod.appendhold( bfield.dt() + DL.rftime )
         rfmod.linear( DL.rfvoltf, DL.rfpulsedt)
         wfms.append(rfmod)
-        
+
+
+    bfieldG = physics.inv( 'bfield', bfield.y[-1]) * 6.8
+    hfimg0 = -1.*(100.0 + 163.7 - 1.414*bfieldG)
+    
+    print "...ANDOR:hfimg and hfimg0 will be modified  in report\n"
+    print "\tNEW  ANDOR:hfimg  = %.2f MHz" % ( hfimg0 - DL.imgdet)
+    print "\tNEW  ANDOR:hfimg0 = %.2f MHz\n" %  hfimg0
+    gen.save_to_report('ANDOR','hfimg', hfimg0 - DL.imgdet)
+    gen.save_to_report('ANDOR','hfimg0', hfimg0)
+    
+    newANDORhfimg = hfimg0 - DL.imgdet
         
     # Kill hfimg
-    if DL.probekill ==1 or DL.braggkill ==1:
-        hfimgdelay = 40. #ms
-        analogimg = wfm.wave('analogimg', ANDOR.hfimg, DL.ss)
+    if DL.probekill ==1 or DL.braggkill ==1 or DL.lightassist or DL.lightassist_lock:
+        hfimgdelay = 50. #ms
+        analogimg = wfm.wave('analogimg', newANDORhfimg, DL.ss)
         
         if DL.probekill == 1:
-            analogimg.appendhold( bfield.dt() + DL.probekilltime - hfimgdelay)
-            analogimg.linear( DL.probekill_hfimg , 0.0)
-            analogimg.appendhold( hfimgdelay + DL.probekilldt + 3*DL.ss)
+            if (-DL.probekilltime+hfimgdelay) < DL.image:
+                analogimg.appendhold( bfield.dt() + DL.probekilltime - hfimgdelay)
+                analogimg.linear( DL.probekill_hfimg , 0.0)
+                analogimg.appendhold( hfimgdelay + DL.probekilldt + 3*DL.ss)
         
         elif DL.braggkill == 1:
-            analogimg.appendhold( bfield.dt() + DL.braggkilltime - hfimgdelay)
-            analogimg.linear( DL.braggkill_hfimg , 0.0)
-            analogimg.appendhold( hfimgdelay + DL.braggkilldt + 3*DL.ss)
-            
-        analogimg.linear( ANDOR.hfimg, 0.)
+            if (-DL.braggkilltime+hfimgdelay) < DL.image:
+                analogimg.appendhold( bfield.dt() + DL.braggkilltime - hfimgdelay)
+                analogimg.linear( DL.braggkill_hfimg , 0.0)
+                analogimg.appendhold( hfimgdelay + DL.braggkilldt + 3*DL.ss)
         
-        wfms.append(analogimg)
+        elif DL.lightassist == 1 or DL.lightassist_lock:
+            analogimg.appendhold( bfield.dt()  - hfimgdelay)
+            analogimg.linear( DL.lightassist_hfimg , 0.0)
+            duration = DL.lightassist_lockdtUP + DL.lightassist_t0 + DL.lightassistdt + DL.lightassist_lockdtDOWN
+            analogimg.appendhold( hfimgdelay + duration + 3*DL.ss)
             
+        analogimg.linear( newANDORhfimg, 0.)
+        analogimg.extend(10)
+        wfms.append(analogimg)
+    
+        
+
+    
+    #analogimg = bfieldwfm.hfimg_wave('analogimg', ANDOR.hfimg, DL.ss)
+    #andorhfimg0 = analogimg.follow(bfield, DL.imgdet)
+    #wfms.append(analogimg)
+    
+
+    # If we are doing round trip END, then mirror all the ramps 
+    # before adding them to the sequence
+    if DL.round_trip == 1:
+        if DL.round_trip_type == 1:
+            maxdt = 0.
+            maxi = -1
+            for i,w in enumerate(wfms):
+                if w.dt() > maxdt:
+                    maxdt = w.dt()
+                    maxi = i
+    
+            maxdt = maxdt + DL.wait_at_top
+    
+            for w in wfms:
+                w.extend(maxdt)
+                if 'lcr' in w.name:
+                    yvals = w.y
+                    
+                    alpha_mirror = numpy.copy(alpha_desired[::-1])
+                    
+                    N_adv = int(math.floor( DL.lcr_mirror_advance / DL.ss))
+                    
+                    if N_adv < v0.size:
+                        alpha_mirror = alpha_mirror[N_adv:]
+                        alpha_mirror = numpy.append(alpha_mirror, (yvals.size-alpha_mirror.size)*[alpha_mirror[-1]])
+                    else:
+                        alpha_mirror = numpy.array( yvals.size*[alpha_mirror[-1]] )
+                    
+                    
+                    
+                    w.y = numpy.concatenate((yvals,physics.cnv( w.name, alpha_mirror )))
+                else:
+                    w.mirror()
+                w.appendhold( DL.wait_at_end)
+            
+        
+    
+    N_adv = int(math.floor( alpha_advance / DL.ss))
+    
+    alpha_desired = numpy.copy(alpha)
+    
+    
+    
     
     duration = s.analogwfm_add(DL.ss,wfms)
     
         
     s.wait( duration )
     
-    if duration > DL.t0 + DL.dt:
-        s.wait(-DL.lattice_interlock_time)
-        if DL.use_lattice_interlock == 1:
-            s.digichg('latticeinterlockbypass',0)
-        else:
-            s.digichg('latticeinterlockbypass',1)
-        s.wait( DL.lattice_interlock_time)
+    if DL.lock:
+        if DL.camera == 'manta' or DL.camera == 'both':
+            s.wait( - MANTA.noatoms)
+    
+    
+    ### Figure out when to turn interlock back on, using alpha information
+    #~ if duration > DL.t0 + DL.dt:
+        #~ s.wait(-DL.lattice_interlock_time)
+        #~ if DL.use_lattice_interlock == 1:
+            #~ s.digichg('latticeinterlockbypass',0)
+        #~ else:
+            #~ s.digichg('latticeinterlockbypass',1)
+        #~ s.wait( DL.lattice_interlock_time)
     
     
     return s 
                         
 
+    
     

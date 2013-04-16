@@ -34,7 +34,13 @@ ANDOR  = gen.getsection('ANDOR')
 DL     = gen.getsection('DIMPLELATTICE')
 MANTA  = gen.getsection('MANTA')
 
-print '...Compilation = %.2f seconds\n' % (time.time()-t0)
+
+
+
+print "\n...SEQ:camera will be modified  in report"
+print "\tNEW  SEQ:camera = %s\n" % ( DL.camera )
+gen.save_to_report('SEQ','camera', DL.camera)
+
 
 
 #SEQUENCE
@@ -52,33 +58,45 @@ if ANDOR.analoghfimg == 1:
 	s.digichg('analogimgttl',1)
 
 
-print '...Compilation = %.2f seconds\n' % (time.time()-t0)
-
-
 # Do CNC, UVMOT, and field ramps
 s, toENDBFIELD = highfield_uvmot.go_to_highfield(s)
 
+analoghfimg = []
+# THis section used to resolve the issue we have probe or bragg kill in dimple section
+if DL.probekill ==1:
+    if (-DL.probekilltime) > DL.image:
+        analoghfimg = [wfm.wave('analogimg', DL.probekill_hfimg, DL.ss)]
+elif DL.braggkill == 1:
+    if (-DL.braggkilltime) > DL.image:
+        analoghfimg = [wfm.wave('analogimg', DL.braggkill_hfimg, DL.ss)]
 
-print '...Compilation = %.2f seconds\n' % (time.time()-t0)
-
-
+    
+    
+    
 # Evaporate into the dimple 
-s, cpowend = odt.crossbeam_dimple_evap(s, toENDBFIELD)
-
-
-print '...Compilation = %.2f seconds\n' % (time.time()-t0)
+s, cpowend = odt.crossbeam_dimple_evap(s, toENDBFIELD,analoghfimg)
 
 
 # Ramp up the lattice
 s = lattice.dimple_to_lattice(s,cpowend)
 
 
-print '...Compilation = %.2f seconds\n' % (time.time()-t0)
-
-
 #########################################
 ## OTHER TTL EVENTS: probekill, braggkill, rf, quick2
 #########################################
+# Braggkill
+if DL.braggkill == 1:
+	print "Using Bragg Kill"
+	s.wait( DL.braggkilltime)
+	s = manta.OpenShutterBragg(s,DL.shutterdelay)
+	s.digichg('bragg',1)
+	s.wait( DL.braggkilldt)
+	s.digichg('brshutter',1) # to close shutter
+	s.digichg('bragg',0)
+	
+	s.wait( -DL.braggkilldt)
+	s.wait( -DL.braggkilltime )
+
 # Probe Kill
 if DL.probekill == 1:
 	s.wait(DL.probekilltime)
@@ -93,6 +111,7 @@ if DL.probekill == 1:
 	s.digichg('prshutter',1)
 	s.wait(-DL.probekilltime)
 
+
 # Pulse RF
 if DL.rf == 1:
 	s.wait(DL.rftime)
@@ -102,18 +121,7 @@ if DL.rf == 1:
 	s.wait(-DL.rfpulsedt)
 	s.wait(-DL.rftime)
 	
-# Braggkill
-if DL.braggkill == 1:
-	s.wait( DL.braggkilltime)
-	
-	s = manta.OpenShutterBragg(s,DL.shutterdelay)
-	s.digichg('bragg',1)
-	s.wait( DL.braggkilldt)
-	s.digichg('brshutter',1) # to close shutter
-	s.digichg('bragg',0)
-	
-	s.wait( -DL.braggkilldt)
-	s.wait( -DL.braggkilltime )
+
 
 
 # QUICK2
@@ -122,6 +130,36 @@ if DL.quick2 == 1:
     s.digichg('quick2',1)
     s.wait(-DL.quick2time)
     
+
+# Light-assisted collisions
+if DL.lightassist == 1 or DL.lightassist_lock:
+	s.wait( -DL.lightassist_lockdtUP -DL.lightassist_t0 -DL.lightassistdt -DL.lightassist_lockdtDOWN - 3*DL.ss)
+	
+	s.wait(DL.lightassist_lockdtUP + DL.lightassist_t0)
+	s.wait(-10)
+	s.digichg('prshutter',0)
+	s.wait(10)
+	s.digichg('probe', DL.lightassist)
+	s.wait(DL.lightassistdt)
+	s.digichg('probe',0)
+
+	s.digichg('prshutter',1)
+	s.wait(DL.lightassist_lockdtDOWN)
+	s.wait(3*DL.ss)
+	# After the collisions happen we still need to wait some time 
+	# for the probe frequency to come back to the desired value
+	hfimgdelay = 50.0
+	s.wait(hfimgdelay)
+
+
+#########################################
+## GO BACK IN TIME IF DOING ROUND-TRIP START
+#########################################
+if DL.round_trip == 1:
+    if DL.round_trip_type == 0:
+        s.wait( -DL.image )
+        s.stop_analog()
+
 
 
 #########################################
@@ -153,14 +191,15 @@ bg = ['odtttl','irttl1','irttl2','irttl3','greenttl1','greenttl2','greenttl3']
 bgdict={}
 for ch in bg:
     bgdict[ch] = s.digistatus(ch)
+    
 
-print '...Compilation = %.2f seconds\n' % (time.time()-t0)
 
 #TAKE PICTURES
 #####light = this is 'probe', 'motswitch' or 'bragg'
 #####camera = this is 'andor' or 'manta'
 if DL.light == 'bragg':
     s = manta.OpenShutterBragg(s,DL.shutterdelay)
+
 
 if DL.camera == 'andor':
 	s,SERIESDT = andor.KineticSeries4_SmartBackground(s,ANDOR.exp, DL.light,ANDOR.noatoms, bg)
@@ -170,6 +209,7 @@ elif DL.camera == 'manta':
 	s=manta.MantaPicture(s, MANTA.exp, DL.light, 1)
 	s.wait(MANTA.noatoms)
 	#RELEASE FROM ODT AND LATTICE
+	s.wait(-70.)
 	s.digichg('quick2',0)
 	s.digichg('field',0)
 	s.digichg('odtttl',0)
@@ -189,11 +229,19 @@ elif DL.camera == 'manta':
 		
 	s.wait(20.0)
 
-	#PICTURE OF BACKGROUND
+	#PICTURE OF NOATOMS
 	s=manta.MantaPicture(s, MANTA.exp, DL.light, 1)
-	s.wait(MANTA.noatoms)
 	
-	#HERE TURN OFF ALL LIGHT THAT COULD GET TO THE MANTA
+elif DL.camera == 'both':
+	#PICTURE OF ATOMS
+	s=manta.MantaPicture(s, MANTA.exp, DL.light, 1)
+	s=andor.AndorKinetics(s,MANTA.exp, DL.light,1) 
+
+	s.wait(MANTA.noatoms)
+	#RELEASE FROM ODT AND LATTICE
+	s.wait(-70.0)
+	s.digichg('quick2',0)
+	s.digichg('field',0)
 	s.digichg('odtttl',0)
 	s.digichg('odt7595',0)
 	s.digichg('ipgttl',0)
@@ -203,14 +251,49 @@ elif DL.camera == 'manta':
 	s.digichg('irttl1',0)
 	s.digichg('irttl2',0)
 	s.digichg('irttl3',0)
-	s.wait(20.0)
+	s.wait(50.0)
 	
-	#REFERENCE #1
-	s=manta.MantaPicture(s, MANTA.exp, DL.light, 0)
-	s.wait(MANTA.noatoms)
-	#REFERENCE #2
-	s=manta.MantaPicture(s, MANTA.exp, DL.light, 0)
-	s.wait(MANTA.noatoms)
+	#RESTORE LIGHTS FOR BACKGROUND
+	for key in bgdict.keys():
+		s.digichg( key, bgdict[key])
+		
+	s.wait(20.0)
+
+	#PICTURE OF NOATOMS
+	s=manta.MantaPicture(s, MANTA.exp, DL.light, 1)
+	s=andor.AndorKinetics(s,MANTA.exp,DL.light,1)
+	
+	
+	#The ANDOR wants 4 pictures so an extra two are taken here
+	s.wait(ANDOR.noatoms) 
+	s.wait(ANDOR.noatoms)
+	s.wait(ANDOR.noatoms)
+	s=andor.AndorKinetics(s,MANTA.exp,DL.light,0)
+	#SHUT DOWN TRAP, THEN TURN BACK ON FOR SAME BACKGROUND
+	#minimum time for no atoms is given by max trigger period in Andor settings
+	s.wait(ANDOR.noatoms) 
+	s.wait(ANDOR.noatoms)
+	s.wait(ANDOR.noatoms)
+	#PICTURE OF BACKGROUND
+	s=andor.AndorKinetics(s,MANTA.exp,DL.light,0)
+	
+	gen.save_to_report('ANDOR','saveframes', 2)
+	
+	
+	
+s.wait(20.0)
+
+#HERE TURN OFF ALL LIGHT THAT COULD GET TO THE MANTA
+s.digichg('odtttl',0)
+s.digichg('odt7595',0)
+s.digichg('ipgttl',0)
+s.digichg('greenttl1',0)
+s.digichg('greenttl2',0)
+s.digichg('greenttl3',0)
+s.digichg('irttl1',0)
+s.digichg('irttl2',0)
+s.digichg('irttl3',0)
+s.wait(20.0)
 
 
 
@@ -221,8 +304,6 @@ s=gen.shutdown(s)
 s.digichg('odtttl',0)
 s.digichg('odt7595',0)
 
-print '...Compilation = %.2f seconds\n' % (time.time()-t0)
-
 
 outputfile = seqconf.seqtxtout() 
 s.save( outputfile )
@@ -231,4 +312,3 @@ shutil.copyfile( outputfile,  __file__.split('.')[0]+'.txt')
 
 s.clear_disk()
         
-print '...Compilation = %.2f seconds\n' % (time.time()-t0)

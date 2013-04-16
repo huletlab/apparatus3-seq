@@ -68,7 +68,11 @@ fieldF = EVAP.fieldrampfinal if EVAP.image > EVAP.fieldrampt0 else FB.bias
 bfield = wfm.wave('bfield', fieldF, EVAP.evapss)
 bfield.linear(ZC.zcbias, ZC.zcrampdt)
 bfield.appendhold(ZC.zcdt)
-s.analogwfm_add(EVAP.evapss,[bfield])
+
+gradient = odt.gradient_wave('gradientfield', 0.0, bfield.ss,volt = 0.0)
+gradient.follow( bfield)
+
+s.analogwfm_add(EVAP.evapss,[bfield,gradient])
 s.wait(ZC.zcdt + ZC.zcrampdt)
 
 

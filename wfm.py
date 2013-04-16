@@ -71,6 +71,11 @@ class wave:
 	def N(self):
 		"""Returns the number of samples on the wfm"""
 		return (self.y.size)
+	
+	def mirror(self):
+		"""Mirror a waveform, it has a total duration twice of its original duration"""
+		yvals= self.y
+		self.y = numpy.concatenate((yvals,yvals[::-1]))
 		
 	def extend(self,dt):
 		"""Extends the waveform so that it's total duration equals 'dt' """
@@ -115,7 +120,7 @@ class wave:
 			return
 		else:
 			print("Negative appendhold is larger than current length of waveform: " + str(-N) + " > " + str(self.y.size))
-			exit(1)
+			raise 
 			
 		return
 		
@@ -319,7 +324,8 @@ class wave:
 			return
 		else:
 			N = int(math.floor(dt/self.ss))
-			print '...Making new tanhRise ramp for ' + self.name
+			print '...Making new tanhRise ramp for ' + self.name + \
+			       ' vf = %.2f, dt = %.3f, tau = %.2f, shift = %.2f' % (vf, dt, tau, shift)
 			x=numpy.arange(dt/N,dt,dt/N)
 			tau = tau*dt
 			shift = dt/2. + shift*dt/2.

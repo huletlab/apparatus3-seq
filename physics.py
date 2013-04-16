@@ -102,38 +102,38 @@ w0d['greenpow3'] = 34.5
 
 #PD slopes
 m1d = {}
-m1d['ir1pow'] = 7.55e-03
-m1d['ir2pow'] = 8.21e-03
-m1d['ir3pow'] = 6.86e-03
-m1d['greenpow1'] = 8.33e-03
-m1d['greenpow2'] = 9.17e-03
-m1d['greenpow3'] = 7.05e-03
+m1d['ir1pow'] = 5.96e-03
+m1d['ir2pow'] = 7.99e-03
+m1d['ir3pow'] = 7.69e-03
+m1d['greenpow1'] = 8.03e-03
+m1d['greenpow2'] = 7.05e-03
+m1d['greenpow3'] = 7.45e-03
 
 #PD offset
 V0d = {}
-V0d['ir1pow'] = 3.88e-3
-V0d['ir2pow'] = 1.19e-02
-V0d['ir3pow'] = 1.85e-02
-V0d['greenpow1'] = 8.21e-2 - 4.4e-2
-V0d['greenpow2'] = 3.23e-3
-V0d['greenpow3'] = 8.84e-3
+V0d['ir1pow'] = 1.67e-2
+V0d['ir2pow'] = 1.4e-2
+V0d['ir3pow'] = 2.3e-2
+V0d['greenpow1'] =-7.21e-4
+V0d['greenpow2'] = 4.27e-3
+V0d['greenpow3'] = 6.01e-3
 
 #Er max
 ErMaxd = {}
-ErMaxd['ir1pow'] = 83.6
-ErMaxd['ir2pow'] = 81.2
-ErMaxd['ir3pow'] = 93.4
-ErMaxd['greenpow1'] = 9.97
-ErMaxd['greenpow2'] = 12.6
-ErMaxd['greenpow3'] = 33.5
+ErMaxd['ir1pow'] = 71.28
+ErMaxd['ir2pow'] = 83.4
+ErMaxd['ir3pow'] = 83.3
+ErMaxd['greenpow1'] = 9.35
+ErMaxd['greenpow2'] = 12.3
+ErMaxd['greenpow3'] = 31.8
 
 #V max
 VMaxd = {}
 VMaxd['ir1pow'] = 10.0
 VMaxd['ir2pow'] = 10.0
 VMaxd['ir3pow'] = 10.0
-VMaxd['greenpow1'] = 4.17
-VMaxd['greenpow2'] = 5.32
+VMaxd['greenpow1'] = 3.88
+VMaxd['greenpow2'] = 4.00
 VMaxd['greenpow3'] = 10.0
 
 
@@ -259,9 +259,37 @@ class lattice_ch:
         return (p-self.V0)/self.m
     
     def physlims(self):
-        return np.array([0., self.ErMax] )
+        return np.array([0, self.ErMax] )
     def voltlims(self):
-        return np.array([0., self.Vmax] ) 
+        return np.array([-0.01, self.Vmax] ) 
+
+
+
+class gradient_ch:
+    def __init__(self, name, m, V0): 
+        self.name = name
+        self.m = m
+        self.V0 = V0
+    ### CALIB : Voltage 
+    def cnvcalib( self, val ):
+            #~ print val
+            cnved = self.m*val + self.V0
+            #~ print cnved
+            return cnved #if cnved >0 else 0
+  
+    def invcalib( self, val ):
+            return (val -self.V0)*1.0/self.m
+
+    def f(self, p):
+        return p
+        
+    def g(self, p):
+        return p
+    
+    def physlims(self):
+        return np.array([self. invcalib(0), self. invcalib(10)] )
+    def voltlims(self):
+        return np.array([0., 10] ) 
 
 
 
@@ -460,6 +488,20 @@ class convert:
         self.gs[ch] = o.g
         self.physlims[ch] = o.physlims()
         self.voltlims[ch] = o.voltlims()    
+        
+        ###Gradient field gradientfield
+        ### Gradient 
+        gradientslope =  0.0971
+        gradientoffset =  -2.7232
+        ch = 'gradientfield'
+        gradientfield = gradient_ch(ch,gradientslope,gradientoffset ) 
+        self.cnvcalib[ch] = np.vectorize(gradientfield.cnvcalib)
+        self.fs[ch] = gradientfield.f
+        self.invcalib[ch] = np.vectorize(gradientfield.invcalib)
+        self.gs[ch] = gradientfield.g
+        self.physlims[ch] = gradientfield.physlims()
+        self.voltlims[ch] = gradientfield.voltlims()
+
 
         ### TUNNELING / WANNIERFACTOR to LATTICE DEPTH
         tANDu = ['t_to_V0','wF_to_V0']
@@ -622,6 +664,7 @@ class convert:
         
         if below_bound_phys.any() or above_bound_phys.any():
             print "phys =", physa
+            print "physMin,PhysMax =",physMin,physMax
             out_of_bounds_phys = None
             
             print "Error in conversion of %s with length = %d" % ( type(physa), len(physa) )

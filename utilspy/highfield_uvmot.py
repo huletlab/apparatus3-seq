@@ -49,17 +49,23 @@ def  go_to_highfield(s):
 	bfield.appendhold( FB.switchondt + FB.switchdelay + UV.extradt)
 	bfield.linear(FB.bias,FB.rampdt)
 
-	#---Change shunt value from motV to hfV before going to highfield
-	shunt = wfm.wave('gradientfield', SHUNT.motV, ss)
-	shunt.extend(ENDUVMOT + FB.rampdelay + FB.rampbf + FB.feshbachdt + UV.extradt) 
-	shunt.linear(SHUNT.hfV, 0.0)	
 
 	#---Set the starting voltage for the ODT
 	odtpow0 = odt.odt_wave('odtpow', ODT.odtpow0, ss)
 	odtpow0.extend(ENDUVMOT)
 	
+	#---Change shunt value from motV to hfV before going to highfield
+	shunt = wfm.wave('gradientfield', SHUNT.motV, ss, volt = SHUNT.motV)
+	shunt.extend(ENDUVMOT + FB.rampdelay + FB.rampbf + FB.feshbachdt + UV.extradt) 
+	#shunt.linear(SHUNT.hfV, 0.0,volt =SHUNT.hfV)	
+	shunt.linear(SHUNT.hfV, 0.0,volt =0.0)	
+	
+	
+	wfms = [ motpow, repdet, trapdet, bfield, reppow, trappow, uvpow, uvpow2,odtpow0, shunt]
+
+	
 	#---Add waveforms to sequence
-	s.analogwfm_add(ss,[ motpow, repdet, trapdet, bfield, reppow, trappow, uvpow, uvpow2,odtpow0,shunt])
+	s.analogwfm_add(ss,wfms)
 	
 		
 	#wait normally rounds down using floor, here the duration is changed before so that
