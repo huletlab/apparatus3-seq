@@ -29,7 +29,7 @@ class gradient_wave(wfm.wave):
 		### wherer I is the current on the bias coils
 		### slope and offset have been calibrated and are set below:
 		
-		## There numbers are now store in physics.py
+		## These numbers are now store in physics.py
 		## slope = 0.0971
 		## offset = -2.7232
 		

@@ -42,9 +42,10 @@ channel_list = [
                  'bfield(100G)', \
                  'ainns(100a0)', \
                  'arice(100a0)', \
+                 'ajochim(100a0)', \
                  'greenpow1(Er)',\
                  'greenpow2(Er)',\
-                 'greepow3(Er)',\
+                 'greenpow3(Er)',\
                  'ir1pow(Er)',\
                  'ir2pow(Er)',\
                  'ir3pow(Er)',\
@@ -91,50 +92,98 @@ channel_list = [
 #IR and GR photodiode calibrations
 #
 
+## Historically used beam waists.
+
+
+
+# May 17, 2013 
+# New values for IR waists
+# wIR1 = 46.6
+# wIR2 = 47.2
+# wIR3 = 43.6
+
+
+# May 02, 2013
+# IR obtained from lattice depth measurements
+# GR obtained from anticonfiment freq measurements
+# wIR1 = 44.9
+# wIR2 = 51.9
+# wIR3 = 43.9
+# Retro factor used on the IR is 0.86
+#
+# wGR1 = 37.2
+# wGR2 = 42.6
+# wGR3 = 37.2
+# 
+
+
+# Up to May 02, 2013
+# w01 = 40.6
+# w02 = 40.7
+# w03 = 41.5 
+
+# Up to Jun 11, 2013
+# w01 = 46.6
+# w02 = 47.2
+# w03 = 43.6 
+# wGR1 = 43.6
+
 #beam waist
 w0d = {}   
-w0d['ir1pow'] = 40.6
-w0d['ir2pow'] = 40.7
-w0d['ir3pow'] = 41.5
-w0d['greenpow1'] = 37.3
-w0d['greenpow2'] = 36.0
-w0d['greenpow3'] = 34.5
+w0d['ir1pow'] = 50.2 / (0.86**0.25)
+w0d['ir2pow'] = 47.8 / (0.86**0.25)
+w0d['ir3pow'] = 43.9 / (0.86**0.25)
+w0d['greenpow1'] = 43.4
+w0d['greenpow2'] = 42.8
+w0d['greenpow3'] = 41.8
 
 #PD slopes
+# Slopes for IR PD's are from Ernie's calibration plus
+# empirical correction factor from the points we collected
+# when measuring lattice frequencies.  
 m1d = {}
-m1d['ir1pow'] = 5.96e-03
-m1d['ir2pow'] = 7.99e-03
-m1d['ir3pow'] = 7.69e-03
-m1d['greenpow1'] = 8.03e-03
-m1d['greenpow2'] = 7.05e-03
-m1d['greenpow3'] = 7.45e-03
+m1d['ir1pow'] = 4.89e-3
+m1d['ir2pow'] = 5.55e-3
+m1d['ir3pow'] = 5.18e-3
+m1d['greenpow1'] = 6.11e-3
+m1d['greenpow2'] = 4.92e-3
+m1d['greenpow3'] = 5.03e-3
 
 #PD offset
 V0d = {}
-V0d['ir1pow'] = 1.67e-2
-V0d['ir2pow'] = 1.4e-2
-V0d['ir3pow'] = 2.3e-2
-V0d['greenpow1'] =-7.21e-4
-V0d['greenpow2'] = 4.27e-3
-V0d['greenpow3'] = 6.01e-3
+V0d['ir1pow'] = 9.17e-3
+V0d['ir2pow'] = 1.93e-2
+V0d['ir3pow'] = 1.06e-3
+V0d['greenpow1'] = 2.64e-2
+V0d['greenpow2'] = 2.22e-2
+V0d['greenpow3'] = 1.01e-2
 
 #Er max
 ErMaxd = {}
-ErMaxd['ir1pow'] = 71.28
-ErMaxd['ir2pow'] = 83.4
-ErMaxd['ir3pow'] = 83.3
-ErMaxd['greenpow1'] = 9.35
-ErMaxd['greenpow2'] = 12.3
-ErMaxd['greenpow3'] = 31.8
+ErMaxd['ir1pow'] = 56.0
+ErMaxd['ir2pow'] = 81.8
+ErMaxd['ir3pow'] = 102.72
+ErMaxd['greenpow1'] = 8.3
+ErMaxd['greenpow2'] = 10.5
+ErMaxd['greenpow3'] = 32.0
 
 #V max
 VMaxd = {}
-VMaxd['ir1pow'] = 10.0
+VMaxd['ir1pow'] = 6.8
 VMaxd['ir2pow'] = 10.0
 VMaxd['ir3pow'] = 10.0
-VMaxd['greenpow1'] = 3.88
-VMaxd['greenpow2'] = 4.00
+VMaxd['greenpow1'] = 3.44
+VMaxd['greenpow2'] = 3.40
 VMaxd['greenpow3'] = 10.0
+
+#V min Servo
+VMinServod = {}
+VMinServod['ir1pow'] = 0.022 + 0.005
+VMinServod['ir2pow'] = 0.019 + 0.005
+VMinServod['ir3pow'] = 0.035 + 0.005
+VMinServod['greenpow1'] = 0.014 + 0.010
+VMinServod['greenpow2'] = 0.020 + 0.005
+VMinServod['greenpow3'] = 0.020 + 0.005
 
 
 
@@ -232,20 +281,21 @@ class odtpow_ch:
 
 
 class lattice_ch:
-    def __init__(self, name, w0, m, V0, ErMax, Vmax): 
+    def __init__(self, name, w0, m, V0, ErMax, Vmax, VminServo): 
         self.name = name
         self.w0 = w0
         self.m = m
         self.V0 = V0
         self.ErMax = ErMax
         self.Vmax = Vmax
+        self.VminServo = VminServo
     ### CALIB : power in mW 
     ### FS : PD voltag
     def cnvcalib( self, val ):
         if 'ir' in self.name:
-            return 1000. * val / 4. / 38709. * 1.4 * self.w0 * self.w0 
+            return 1000. * val / 4. / 38709. * 1.4 * self.w0 * self.w0  
         if 'gr' in self.name:
-            return 1000. * val / 1. / 39461. * 1.4 * self.w0 * self.w0
+            return 1000. * val / 1. / 39461. * 1.4 * self.w0 * self.w0  
     def invcalib( self, val ):
         if 'ir' in self.name:
             return val / 1000. * 4. * 38709. / 1.4 / self.w0 / self.w0
@@ -253,7 +303,9 @@ class lattice_ch:
             return val / 1000. * 1. * 39461. / 1.4 / self.w0 / self.w0
             
     def f(self, p):
-        return self.m * p + self.V0
+        Vout = self.m * p + self.V0
+        Vout = np.clip( Vout, self.VminServo, 11. )
+        return Vout
         
     def g(self, p):
         return (p-self.V0)/self.m
@@ -275,7 +327,7 @@ class gradient_ch:
             #~ print val
             cnved = self.m*val + self.V0
             #~ print cnved
-            return cnved #if cnved >0 else 0
+            return cnved if cnved >0. else 0.
   
     def invcalib( self, val ):
             return (val -self.V0)*1.0/self.m
@@ -287,7 +339,8 @@ class gradient_ch:
         return p
     
     def physlims(self):
-        return np.array([self. invcalib(0), self. invcalib(10)] )
+        #return np.array([self. invcalib(0), self. invcalib(10)] )
+        return np.array([0., self. invcalib(10)] )
     def voltlims(self):
         return np.array([0., 10] ) 
 
@@ -365,16 +418,18 @@ class convert:
             if ch == 'trapdet':
                 ### IN    :  MHz detuning at atoms
                 ### CALIB :  Double-pass AOM frequency
-                self.cnvcalib[ch] = lambda val: (val+120.+120.)/2. 
-                self.invcalib[ch] = lambda val: 2*val - 120 - 120. 
+                shift = -1.1
+                self.cnvcalib[ch] = lambda val: (val+shift+120.+120.)/2. 
+                self.invcalib[ch] = lambda val: 2*val -shift -120 - 120. 
                 self.physlims[ch] = self.invcalib[ch]( np.array( [ np.amin(xdat), np.amax(xdat) ] ) ) 
                 self.voltlims[ch] = np.array([2.0, 8.0])
                 
             elif ch == 'repdet':
                 ### IN    :  MHz detuning at atoms
                 ### CALIB :  Double-pass AOM frequency
-                self.cnvcalib[ch] = lambda val: (val+228.2 -80.0 + 120.)/2. 
-                self.invcalib[ch] = lambda val: 2*val -228.2 + 80.0 - 120.
+                shift = -1.1
+                self.cnvcalib[ch] = lambda val: (val+shift+228.2 -80.0 + 120.)/2. 
+                self.invcalib[ch] = lambda val: 2*val -shift -228.2 + 80.0 - 120.
                 self.physlims[ch] = self.invcalib[ch]( np.array( [ np.amin(xdat), np.amax(xdat) ] ) ) 
                 self.voltlims[ch] = np.array([2.0, 8.0])
                 
@@ -457,7 +512,7 @@ class convert:
         ### Channels that are NOT associated with calibration files are 
         ### defined below 
 
-        chs = ['uvpow2', 'gradientfield', 'ipganalog', 'rfmod'] 
+        chs = ['uvpow2', 'ipganalog', 'rfmod'] 
         for ch in chs:
             self.cnvcalib[ch] = lambda val: val
             self.invcalib[ch] = lambda val: val
@@ -471,7 +526,7 @@ class convert:
         for ch in latticechs:
             ### CALIB : power in mW 
             ### FS : PD voltag
-            l = lattice_ch( ch, w0d[ch], m1d[ch], V0d[ch], ErMaxd[ch], VMaxd[ch])
+            l = lattice_ch( ch, w0d[ch], m1d[ch], V0d[ch], ErMaxd[ch], VMaxd[ch], VMinServod[ch])
             self.cnvcalib[ch] = l.cnvcalib
             self.fs[ch] = l.f
             self.invcalib[ch] = l.invcalib
@@ -535,13 +590,14 @@ class convert:
             self.cnvcalib[ch] = lambda val: val
             self.invcalib[ch] = lambda val: val
             self.physlims[ch] = self.invcalib[ch]( np.array( [ np.amin(xdat), np.amax(xdat) ] ) ) 
-            self.voltlims[ch] = np.array([0., 46.])
+            self.voltlims[ch] = np.array([0., 56.])
 
         ### SCATTERING LENGTH to BFIELD 
         ch = 'as_to_B' 
         ### CALIB : unity
         ### FS : interpolation
-        table = np.loadtxt(physpath+'ainns.dat', usecols  = (1,0))
+        #Use latest data from Jochim group
+        table = np.loadtxt(physpath+'ajochim_truncated.dat', usecols  = (1,0))
 
         ydat = table[:,1] # bfield (Gauss)
         xdat = table[:,0] # scattering length (a0)
@@ -560,10 +616,40 @@ class convert:
 
         self.cnvcalib[ch] = lambda val: val
         self.invcalib[ch] = lambda val: val
-        self.physlims[ch] = self.invcalib[ch]( np.array( [ np.amin(xdat), np.amax(xdat) ] ) ) 
-        self.voltlims[ch] = np.array( [ np.amin(xdat), np.amax(xdat) ] ) 
+        self.physlims[ch] = np.array( [ np.amin(xdat), np.amax(xdat) ] ) 
+        self.voltlims[ch] = np.array( [ np.amin(ydat), np.amax(ydat) ] )
+        
+    def plotcnv( self, ch ): 
+        import matplotlib.pyplot as plt
+        print "-------- %s --------" % ch 
+        print "physical limits = ", self.physlims[ch]
+        print "voltage  limits = ", self.voltlims[ch]
+        physvals = np.linspace( self.physlims[ch][0] , self.physlims[ch][1] , 40 )
+        plt.plot( self.cnv(ch,physvals), physvals,  '--', lw=2)
+        plt.legend([ch+'_cnv'], loc='best')
+        plt.grid()
+        plt.show()
          
-         
+    def plotcnvinv( self, ch ): 
+        import matplotlib.pyplot as plt
+        print "-------- %s --------" % ch 
+        print "physical limits = ", self.physlims[ch]
+        print "voltage  limits = ", self.voltlims[ch]
+        voltvals = np.linspace( self.voltlims[ch][0] , self.voltlims[ch][1] , 40 )
+        physvals = np.linspace( self.physlims[ch][0] , self.physlims[ch][1] , 40 )
+        
+        #~ try:
+        plt.plot( self.cnv(ch,physvals), physvals,  '--', lw=2)
+        plt.plot( voltvals, self.inv(ch,voltvals), '-')
+        #~ except ValueError as e:
+            #~ print "Error in producing conversion plot for ch = %s" % ch
+            #~ print "voltvals = ", voltvals
+            #~ print "physvals = ", physvals
+            #~ print xdat
+            #~ print e
+        plt.legend([ch+'_cnv', ch+'_inv'], loc='best')
+        plt.grid()
+        plt.show()
 
     def plot(self):
         import matplotlib.pyplot as plt
@@ -603,34 +689,21 @@ class convert:
                 
         plotdat = raw_input("Do you wish to plot conversions for channels NOT in .dat files? (y/n)")
         
-    
+        print "\nThe following channels are available:"
+        available = []
+        for ch in self.fs.keys():
+            if ch not in datchs and ( 'ir' in ch or 'gr' in ch or 'odt' in ch or 'V0' in ch or 'ajochim' in ch):
+                available.append(ch)
+        pprint.pprint( available )
         
         for ch in self.fs.keys():
-            if ch not in datchs and ( 'ir' in ch or 'gr' in ch or 'odt' in ch or 'V0' in ch):
-                print "-------- %s --------" % ch 
-                print "physical limits = ", self.physlims[ch]
-                print "voltage  limits = ", self.voltlims[ch]
-                
-                voltvals = np.linspace( self.voltlims[ch][0] , self.voltlims[ch][1] , 40 )
-                physvals = np.linspace( self.physlims[ch][0] , self.physlims[ch][1] , 40 )
-                
+            if ch not in datchs and ( 'ir' in ch or 'gr' in ch or 'odt' in ch or 'V0' in ch or 'ajochim' in ch):
                 if plotdat == 'y':
-
-                    #~ try:
-
-                        
-                    plt.plot( self.cnv(ch,physvals), physvals,  '--', lw=2)
-                    plt.plot( voltvals, self.inv(ch,voltvals), '-')
-                        
-                    #~ except ValueError as e:
-                        #~ print "Error in producing conversion plot for ch = %s" % ch
-                        #~ print "voltvals = ", voltvals
-                        #~ print "physvals = ", physvals
-                        #~ print xdat
-                        #~ print e
-                        
-                    plt.legend([ch+'_cnv', ch+'_inv'], loc='best')
-                    plt.show()
+                    plotcnvinv( ch)
+                else: 
+                    print "-------- %s --------" % ch 
+                    print "physical limits = ", self.physlims[ch]
+                    print "voltage  limits = ", self.voltlims[ch]
                 
                 
 
@@ -646,8 +719,8 @@ class convert:
         physMax = self.physlims[ch][1] + 0.000001
         
         
-        physMin = physMin - (physMax-physMin)*0.01
-        physMax = physMax + (physMax-physMin)*0.01
+        physMin = physMin - (physMax-physMin)*0.015
+        physMax = physMax + (physMax-physMin)*0.015
         
 
         voltMin = self.voltlims[ch][0] - 0.000001
@@ -669,7 +742,8 @@ class convert:
             
             print "Error in conversion of %s with length = %d" % ( type(physa), len(physa) )
               
-            msg = "The following values are outside the physical limits [%f,%f]: " % (physMin, physMax)
+            msg = "Physical limits [%f,%f]\n" % (physMin, physMax)
+            msg += "The following values are outside the physical limits:"
             
             if physa.ndim < 1:
                 out_of_bounds_phys = physa
@@ -688,8 +762,9 @@ class convert:
 
             
             out_of_bounds_volt = None
-              
-            msg = "The following values are outside the voltage limits [%f,%f]: " % (voltMin, voltMax)
+            
+            msg = "Voltage limits [%f,%f]\n" % (voltMin, voltMax)  
+            msg += "The following values are outside the voltage limits:"
 
             if volta.ndim < 1:
                 out_of_bounds_volt = volta
@@ -731,12 +806,20 @@ def inv( ch, val ):
 #
 def interpdat( datfile, x, y, dat):
     table = np.loadtxt( datfile, usecols  = (x,y))
+  
+    if 'ajochim.dat' in datfile:
+       print "Inside interpolation routine."
+ 
     try:
         f = interp1d( table[:,0], table[:,1], kind='cubic')
     except ValueError as e:
         print e
         print "Could not define interpolation function"
         f = lambda x: x
+
+    if 'ajochim.dat' in datfile:
+       print "Succesfully defined interpolation function."
+    
     try:
         out = f(dat[:,1])
     except ValueError as e:
@@ -754,8 +837,8 @@ def scaleFactor( dat, scale ):
 
 #Run standalone to test interpolation of a table file
 if __name__ == '__main__':
-    #~ dll.plot()
-    #~ exit(0)
+    #dll.plot()
+    #exit(0)
 
 
     parser = argparse.ArgumentParser('physics.py')
@@ -907,18 +990,27 @@ class calc:
             self.prereq('bfield(G)')
             self.calcwfms[ch] = scaleFactor(self.interpch( physpath+'arice.dat', 0, 1, 'bfield(G)' ), 1/100.)
             return self.calcwfms[ch]
+
+        elif ch == 'ajochim(100a0)':
+            self.prereq('bfield(G)')
+            print "\tDone with bfield(G) prerequisite"
+            ascatt = self.interpch( physpath+'ajochim.dat', 0, 1, 'bfield(G)' )
+            print "\tDone with interpolation between bfield(G) and ajochim.dat"
+            self.calcwfms[ch] = scaleFactor(ascatt, 1/100.)
+            print "\tDone with scaling"
+            return self.calcwfms[ch]
             
         
         ### Calculate depth of IR and green beams
-        elif ch in ['ir1pow(Er)', 'ir2pow(Er)', 'ir3pow(Er)', 'greenpow1(Er)', 'greenpow1(Er)', 'greenpow3(Er)']: 
+        elif ch in ['ir1pow(Er)', 'ir2pow(Er)', 'ir3pow(Er)', 'greenpow1(Er)', 'greenpow2(Er)', 'greenpow3(Er)']: 
             self.calcwfms[ch] = self.cnvInversion( ch.split('(')[0] ) 
             return self.calcwfms[ch]
 
-        elif ch in ['ir1pow(100mW)', 'ir2pow(100mW)', 'ir3pow(100mW)', 'greenpow1(100mW)', 'greenpow1(100mW)', 'greenpow3(100mW)']:
+        elif ch in ['ir1pow(100mW)', 'ir2pow(100mW)', 'ir3pow(100mW)', 'greenpow1(100mW)', 'greenpow2(100mW)', 'greenpow3(100mW)']:
             lch  = ch.split('(')[0] 
             Erch = lch + '(Er)' 
             self.prereq( Erch )
-            l = lattice_ch( lch, w0d[lch], m1d[lch], V0d[lch], ErMaxd[lch], VMaxd[lch])
+            l = lattice_ch( lch, w0d[lch],  m1d[lch], V0d[lch], ErMaxd[lch], VMaxd[lch],VMinServod[lch])
             dat = self.calcwfms[Erch] 
             self.calcwfms[ch] = (dat[0], l.cnvcalib( dat[1] )/100. )
             return self.calcwfms[ch] 
@@ -1011,7 +1103,7 @@ class calc:
 
                 #Valid lattice depths
                 v0valid = ma.masked_array( latticeDepth, \
-                                   mask = np.logical_not( np.logical_and( latticeDepth > 0., latticeDepth < 46.0 )) )
+                                   mask = np.logical_not( np.logical_and( latticeDepth > 0., latticeDepth < 56.0 )) )
 
                 #Fill bad lattice depths with a 1.0 
                 v0valid = v0valid.filled(1.0) 
@@ -1082,8 +1174,9 @@ class calc:
            
             B_Gauss= np.transpose( np.vstack( (np.zeros(B_Amps.shape), B_Amps*6.8))) 
 
-            #Scattering length is calculated below using units of a0 
-            a_s = interpdat( physpath+'ainns.dat', 0, 1, B_Gauss)[1]
+            #Scattering length is calculated below using units of a0
+            #use latest data from Jochim group 
+            a_s = interpdat( physpath+'ajochim.dat', 0, 1, B_Gauss)[1]
 
             #Then converted into units of lattice spacing
             a0 = 5.29e-11 # meters
@@ -1142,7 +1235,7 @@ def onsite_int( wfms):
     latticeV0 = latticeV0[:,1]
 
     bfield_Gauss = interpdat( physpath+'bfield.dat', 0, 1, bfield) * 6.8
-    scatt_length = interpdat( physpath+'ainns.dat', 0, 1, bfield_Gauss ) / 100.
+    scatt_length = interpdat( physpath+'ajochim.dat', 0, 1, bfield_Gauss ) / 100.
 
     onsite =  scatt_length
 

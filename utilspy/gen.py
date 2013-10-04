@@ -44,7 +44,30 @@ def save_to_report( sec, key, value):
 	report = getreport()
 	report[sec][key] = str(value)
 	report.write()
-	
+
+#This function get lattice webcam data from: /lab/software/apparatus3/utilities/Lattice_Webcam/log.dat and save the data to the report
+def get_lattice_webcam_data(input=""):
+    logfile = seqconf.base_seqspypath().split("seq/")[0] +"utilities/Lattice_Webcam/log.dat"
+    logfile = ConfigObj(logfile)
+    sections = ["IR1","IR2","IR3","GR1","GR2","GR3"]
+    report = getreport()
+    
+    
+    if input in sections:
+        data = str(logfile[input]["latest"]).split(",")
+        report["LATTICEWEBCAM"][input+"_Cx"] = data[0]
+        report["LATTICEWEBCAM"][input+"_Cy"] = data[1]
+        report["LATTICEWEBCAM"][input+"_Wx"] = data[2]
+        report["LATTICEWEBCAM"][input+"_Wy"] = data[3]
+        report.write()
+    else:
+        for i in sections:
+            data = str(logfile[i]["latest"]).split(",")
+            report["LATTICEWEBCAM"][i+"_Cx"] = data[0]
+            report["LATTICEWEBCAM"][i+"_Cy"] = data[1]
+            report["LATTICEWEBCAM"][i+"_Wx"] = data[2]
+            report["LATTICEWEBCAM"][i+"_Wy"] = data[3]
+            report.write()           
 class Section(object):
 	def __init__(self, adict):
 		self.__dict__.update(adict)

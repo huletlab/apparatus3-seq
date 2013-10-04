@@ -26,7 +26,7 @@ def savedir():
     return lab+'software/apparatus3/seq/seqspy/sandbox_ernie/'
 
 def runnumber():
-    return '_sandbox'
+    return '_sandbox_ernie'
    
 def systemtxt():
     return lab+'software/apparatus3/conf/system.txt'

@@ -23,7 +23,7 @@ class wave:
 	def __init__(self,name,val,stepsize,N=1,volt=-11):
 		"""Initialize the waveform  """
 
-		self.idnum = time.time()*100
+		self.idnum = time.time()*100 + 1e3*numpy.random.randint(0,1e8)
 		self.name = name
 		
 		self.lastPhys = None
@@ -31,6 +31,9 @@ class wave:
 		if volt != -11:
 			val=volt
 		else:
+			
+			#print "INITIALIZING WFM:  %s, val=%f,  volt=%f" % (name,val,physics.cnv(self.name,val))
+			
 			self.lastPhys = val
 			val=physics.cnv(self.name,val)
 			
@@ -104,6 +107,14 @@ class wave:
 			print "-----> Chop error, ended up with the wrong number of samples in waveform"
 			print "-----> %s : dt = %f,  selfdt = %f" % (self.name, dt, self.dt())
 			print "-----> dt0 = %f,  dtf = %f" % (dt0, dtf)
+		return
+		
+	def retain_last( self, dt):
+		"""Discards everything except the last dt ms from the end of the waveform."""
+		if self.dt() <= dt:
+			return
+		tokeep = math.floor(dt/self.ss)  
+		self.y = self.y[ self.y.size - tokeep : ] 
 		return
 		
 		
@@ -230,11 +241,15 @@ class wave:
 			self.y = numpy.append(self.y,[vf])
 			return
 		elif -start > self.dt():
-			print("Cannot insert ramp before the beggiging of the waveform")
-			exit(1)
+			exc = "wfm.py: Cannot insert ramp before the beggiging of the waveform"
+                        print exc
+                        raise Exception(exc)
+			#exit(1)
 		elif dt > -start:
-			print("Ramp is too long for inserting")
-			exit(1)
+			exc = "wfm.py: Ramp is too long for inserting"
+                        print exc
+                        raise Exception(exc)
+			#exit(1)
 		Nstart=int(math.floor(-start/self.ss))
 		if dt==0. :
 			N=0
@@ -317,6 +332,7 @@ class wave:
 		#print "convert.cnv(%.6f) = %.6f" % ( vf, cnv(self.name,vf))
 		#print "physics.cnv(%.6f) = %.6f" % ( vf, physics.cnv(self.name,vf))
 		#vf=cnv(self.name,vf)
+		physf = vf
 		vf=physics.cnv(self.name,vf)
 		v0=self.last()
 		if dt == 0.0:
@@ -325,8 +341,13 @@ class wave:
 		else:
 			N = int(math.floor(dt/self.ss))
 			print '...Making new tanhRise ramp for ' + self.name + \
-			       ' vf = %.2f, dt = %.3f, tau = %.2f, shift = %.2f' % (vf, dt, tau, shift)
-			x=numpy.arange(dt/N,dt,dt/N)
+			       ' physf=%.3f, vf = %.3f, dt = %.3f, tau = %.2f, shift = %.2f' % (physf,vf, dt, tau, shift)
+			x=numpy.arange(dt/N,dt+dt/N,dt/N) # arange is half open: [start,stop)
+                        #print '\t x[ 0] =',x[ 0]
+                        #print '\t x[-1] =',x[-1]
+                        #print '\t    ss =',self.ss
+                        #print '\tlen(x) =',x.size
+                        #print '\t     N =',N
 			tau = tau*dt
 			shift = dt/2. + shift*dt/2.
 			ramp= v0 + (vf-v0)* ( (1+numpy.tanh((x-shift)/tau)) - (1+numpy.tanh((-shift)/tau)) )\

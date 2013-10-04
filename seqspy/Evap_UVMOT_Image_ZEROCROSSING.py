@@ -108,7 +108,7 @@ if int(EVAP.use_odt_lock) == 1:
         ipganalog.extend(bfield.dt())
         #Here, go ahead and save the finalcpow to the report
         gen.save_to_report('EVAP','finalcpow', odtlockpow)
-
+        
 
 waveforms = [odtpow,bfield,ipganalog]
 
@@ -127,7 +127,14 @@ if int(RF.rf) == 1:
     for i in waveforms:
         i.extend(rfmod.dt())
     waveforms = [odtpow,bfield,ipganalog,rfmod]
+    
+#Add gradientfield ramp to have levitation all the time
+from bfieldwfm import gradient_wave
+gradient = gradient_wave('gradientfield', 0.0, bfield.ss,volt = 0.0)
+gradient.follow( bfield)
+waveforms.append(gradient)
 
+s.digichg('gradientfieldttl',1)
 
 #Add waveforms and go to the end of evaporation
 s.analogwfm_add(EVAP.evapss,waveforms)

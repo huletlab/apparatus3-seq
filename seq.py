@@ -522,6 +522,16 @@ class sequence:
 		aouts = []
 		
 		#print("...start adding waveforms.")
+		ss0=0
+		for n,elem in enumerate(wfms):
+			if n == 0: ss0= elem.ss
+			if elem.ss != ss0:
+				print "Step Size doesn't match in Waveform."
+				for el in wfms:
+					print "Channel=",el.name,"\tStep Size=",el.ss
+				exit(1)
+			ss0 = elem.ss
+			
 		for elem in wfms:
 			dict = {}
 			dict["name"] = elem.name
@@ -551,6 +561,14 @@ class sequence:
 		#Ensures you only wait intervals that are multiples of
 		#the step size.
 		self.tcur = self.tcur + math.floor(delay/self.step)*self.step
+		#
+		# 2013/07/02 A case was added to handle negative delays.
+		# This may affect other parts of the sequence. 
+		# if delay >= 0:
+		#	self.tcur = self.tcur + math.floor(delay/self.step)*self.step
+		#else:
+		#	self.tcur = self.tcur - math.floor(-delay/self.step)*self.step
+		#
 		if self.tcur<0:
 				print "Sequence time (t=" + str(self.tcur) + ") is less than zero. Went back in time too far."
 				print "Solution: Add a small delay at the beggining of the sequence to compensate."

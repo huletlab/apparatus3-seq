@@ -1,0 +1,135 @@
+...adding path /lab/software/apparatus3/convert
+...adding path /lab/software/apparatus3/seq/utilspy
+...adding path /lab/software/apparatus3/seq
+
+...SEQ:camera will be modified  in report
+	NEW  SEQ:camera = andor
+
+----- INITIALIZING SEQUENCE: -----
+  Clock rate = 500000 Hz
+  SEQ:stepsize should be (2+n)*(2.0 us), where n=0,1,2,...
+  SEQ:stepsize is 6.0 us
+  SEQ:stepsize is good!
+
+...Making new sinhRise ramp
+...CNC = True
+...Added wfmout to sequence: 7002 samples
+toENDBFIELD = 8.490000 
+
+----- EVAPORATION RAMP Version 8-----
+	...Evap nsteps = 7600
+	...Making new Evap8 ramp
+
+	...Making new Evap_field
+...Setting IPG to follow the evap ramp
+...Making new tanhRise ramp for ir1pow physf=1.00, vf = 0.23, dt = 1000.000, tau = 0.40, shift = 0.20
+##### IRPOW.DT() =  1079.500000 
+...Making new tanhRise ramp for ir1pow physf=1.00, vf = 0.23, dt = 300.000, tau = 0.40, shift = 0.20
+...Making new tanhRise ramp for ir1pow physf=1.00, vf = 0.23, dt = 500.000, tau = 0.40, shift = 0.20
+...Making new tanhRise ramp for ir2pow physf=1.00, vf = 0.19, dt = 1000.000, tau = 0.40, shift = 0.20
+##### IRPOW.DT() =  1079.500000 
+...Making new tanhRise ramp for ir2pow physf=1.00, vf = 0.19, dt = 300.000, tau = 0.40, shift = 0.20
+...Making new tanhRise ramp for ir2pow physf=1.00, vf = 0.19, dt = 500.000, tau = 0.40, shift = 0.20
+...Making new tanhRise ramp for ir3pow physf=1.00, vf = 0.17, dt = 1000.000, tau = 0.40, shift = 0.20
+##### IRPOW.DT() =  1079.500000 
+...Making new tanhRise ramp for ir3pow physf=1.00, vf = 0.17, dt = 300.000, tau = 0.40, shift = 0.20
+...Making new tanhRise ramp for ir3pow physf=1.00, vf = 0.17, dt = 500.000, tau = 0.40, shift = 0.20
+...Making new tanhRise ramp for greenpow1 physf=0.00, vf = 0.02, dt = 1000.000, tau = 0.40, shift = 0.20
+...Making new tanhRise ramp for greenpow1 physf=0.00, vf = 0.02, dt = 300.000, tau = 0.40, shift = 0.20
+...Making new tanhRise ramp for greenpow1 physf=0.00, vf = 0.02, dt = 500.000, tau = 0.40, shift = 0.20
+...Making new tanhRise ramp for greenpow2 physf=0.00, vf = 0.03, dt = 1000.000, tau = 0.40, shift = 0.20
+...Making new tanhRise ramp for greenpow2 physf=0.00, vf = 0.03, dt = 300.000, tau = 0.40, shift = 0.20
+...Making new tanhRise ramp for greenpow2 physf=0.00, vf = 0.03, dt = 500.000, tau = 0.40, shift = 0.20
+...Making new tanhRise ramp for greenpow3 physf=0.00, vf = 0.03, dt = 1000.000, tau = 0.40, shift = 0.20
+...Making new tanhRise ramp for greenpow3 physf=0.00, vf = 0.03, dt = 300.000, tau = 0.40, shift = 0.20
+...Making new tanhRise ramp for greenpow3 physf=0.00, vf = 0.03, dt = 500.000, tau = 0.40, shift = 0.20
+...Making new tanhRise ramp for odtpow physf=0.00, vf = 0.00, dt = 200.000, tau = 0.40, shift = 0.20
+...Setting GRADIENT to follow bfield ramp
+
+--- Duration of DIMPLE EVAP wfms
+              odtpow = 4971.000000
+           ipganalog = 4771.500000
+              bfield = 3974.000000
+       gradientfield = 3974.000000
+              ir1pow = 6020.500000
+              ir2pow = 6020.500000
+              ir3pow = 6020.500000
+           greenpow1 = 5980.500000
+           greenpow2 = 5980.500000
+           greenpow3 = 5980.500000
+                lcr1 = 4771.500000
+                lcr2 = 4771.500000
+                lcr3 = 4771.500000
+
+
+maxdt = 6020.500000
+
+              odtpow = 6020.500000 (ss=0.500000)
+           ipganalog = 6020.500000 (ss=0.500000)
+              bfield = 6020.500000 (ss=0.500000)
+       gradientfield = 6020.500000 (ss=0.500000)
+              ir1pow = 6020.500000 (ss=0.500000)
+              ir2pow = 6020.500000 (ss=0.500000)
+              ir3pow = 6020.500000 (ss=0.500000)
+           greenpow1 = 6020.500000 (ss=0.500000)
+           greenpow2 = 6020.500000 (ss=0.500000)
+           greenpow3 = 6020.500000 (ss=0.500000)
+                lcr1 = 6020.500000 (ss=0.500000)
+                lcr2 = 6020.500000 (ss=0.500000)
+                lcr3 = 6020.500000 (ss=0.500000)
+
+...Added wfmout to sequence: 12042 samples
+...Evap cpowend  = 0.086018
+----- LATTICE LOADING RAMPS -----
+4000 samples
+(3999,)
+
+MAKING POINT DEFINED RAMP
+(0.0,0.0)--(10.0,0.2)~~(20.0,0.4)~~(50.0,0.8)~~(100.0,1.00)xx--(200.0,2.5)xx--(300.0,7.0)--(400.0,7.0)
+
+
+MAKING POINT DEFINED RAMP
+(0.0,0.0)--(12.5,0.00)--(100.0,0.00)xx--(200.0,1.5)xx--(300,6.0)
+
+gr0 offset = 0.000000
+
+MAKING POINT DEFINED RAMP
+(0.0,0.0)--(12.5,0.0)--(100.0,0.2)xx--(200.0,1.0)xx--(300,3.5)
+
+gr1 offset = 0.000000
+
+MAKING POINT DEFINED RAMP
+(0.0,0.0)--(12.5,0.0)--(100.0,0.2)xx--(200.0,1.0)xx--(300,3.5)
+
+gr2 offset = 0.000000
+
+MAKING POINT DEFINED RAMP
+(0.0,0.0)--(12.5,0.0)--(100.0,0.2)xx--(200.0,1.0)xx--(300,3.5)
+
+greenpow2  =  (3000,)
+greenpow3  =  (3000,)
+greenpow1  =  (3000,)
+
+MAKING POINT DEFINED RAMP
+(0.0,304.5)--(4.0,304.5)--(100.0,304.5)xx--(200,220.0)
+
+...Setting GRADIENT to follow bfield ramp
+...ANDOR:hfimg and hfimg0 will be modified  in report
+
+	NEW  ANDOR:hfimg  = 544.78 MHz
+	NEW  ANDOR:hfimg0 = 552.61 MHz
+
+ir1pow dt = 299.900000
+ir2pow dt = 299.900000
+ir3pow dt = 299.900000
+greenpow1 dt = 299.900000
+greenpow2 dt = 299.900000
+greenpow3 dt = 299.900000
+lcr1 dt = 299.900000
+lcr2 dt = 299.900000
+lcr3 dt = 299.900000
+bfield dt = 299.900000
+gradientfield dt = 299.900000
+rfmod dt = 299.800000
+analogimg dt = 70.200000
+...Added wfmout to sequence: 3000 samples

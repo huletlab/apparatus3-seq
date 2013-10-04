@@ -356,7 +356,8 @@ def odt_evap_field_free(toENDBFIELD, scale =1.0):
 	odtpow = odt_wave('odtpow', ODT.odtpow, EVAP.evapss)
 	odtpow.appendhold( odtfree )
 	
-	image = DIMPLE.image if DIMPLE.image <= EVAP.image else EVAP.image
+	#image = DIMPLE.image if DIMPLE.image <= EVAP.image else EVAP.image
+	image = DIMPLE.image 
 	
 	### SELECT EVAP TRAJECTORY HERE###
 	finalcpow = odtpow.Evap8(\
@@ -421,7 +422,8 @@ def crossbeam_dimple_evap(s, toENDBFIELD,extrawfm=[]):
 	bfield, odtpow, ENDEVAP, cpowend, ipganalog = odt_evap_field_free(toENDBFIELD)
 	
 	
-	#---Set LCR preset value in the begining of evap 1 is lattice 0 is dimple
+	#---Set LCR preset value in the begining of evap
+	#---1 is lattice 0 is dimple
 	def dimpleset(ch):
 		w = lattice.lattice_wave(ch, DIMPLE.alpha, EVAP.evapss)
 		w.extend(ENDEVAP)
@@ -431,8 +433,15 @@ def crossbeam_dimple_evap(s, toENDBFIELD,extrawfm=[]):
 	lcr2 = dimpleset('lcr2')
 	lcr3 = dimpleset('lcr3')
 	
-	if DIMPLE.odt_pow >= 0.:
-		odtpow.tanhRise( DIMPLE.odt_pow, DIMPLE.odt_dt, DIMPLE.odt_tau, DIMPLE.odt_shift)
+	
+	#---Add bfield ramp to a different scattering length
+        if DIMPLE.Bramp == 1:
+ 	    if bfield.dt() != odtpow.dt():
+	    	bfield.extend( odtpow.dt())
+	    bfield.appendhold( DIMPLE.B_t0)
+	    bfield.tanhRise( DIMPLE.B,  DIMPLE.B_dt,  DIMPLE.B_tau, DIMPLE.B_shift) 
+	
+	
 	
 	#---Ramp up IR, GR beams
 	def rampup( ch ):
@@ -441,22 +450,44 @@ def crossbeam_dimple_evap(s, toENDBFIELD,extrawfm=[]):
 		
 		if 'ir' in ch:
 			n=filter( str.isdigit, ch)[0]
+			
+			if DIMPLE.allirpow < 0.:
+				pow0 = DIMPLE.__dict__['ir'+n+'pow0']
+				pow1 = DIMPLE.__dict__['ir'+n+'pow1']
+				pow2 = DIMPLE.__dict__['ir'+n+'pow2']
+			else:
+				pow0 = DIMPLE.allirpow
+				pow1 = DIMPLE.allirpow
+				pow2 = DIMPLE.allirpow
+			
 			w.appendhold( DIMPLE.ir_t0 )
-			#n='1'
-			w.tanhRise( DIMPLE.__dict__['ir'+n+'pow0'], DIMPLE.ir_dt, DIMPLE.ir_tau, DIMPLE.ir_shift)
+			w.tanhRise(pow0 , DIMPLE.ir_dt0, DIMPLE.ir_tau, DIMPLE.ir_shift)
+                        #print "\ttanhrise LAST = ",w.y[-1] 
 			print "##### IRPOW.DT() = % f " % w.dt()
 			w.extend( odtpow.dt() )
-			w.appendhold( DIMPLE.compress_t0)
-			w.tanhRise( DIMPLE.__dict__['ir'+n+'pow'], DIMPLE.compress_dt, DIMPLE.ir_tau, DIMPLE.ir_shift)
+			w.appendhold( DIMPLE.ir_t1)
+			w.tanhRise(pow1 , DIMPLE.ir_dt1, DIMPLE.ir_tau, DIMPLE.ir_shift)
+                        #print "\ttanhrise LAST = ",w.y[-1] 
+			w.appendhold( DIMPLE.ir_t2)
+			w.tanhRise(pow2 , DIMPLE.ir_dt2, DIMPLE.ir_tau, DIMPLE.ir_shift)
+                        #print "\ttanhrise LAST = ",w.y[-1] 
 
 			
 		elif 'green' in ch:
 			n=filter( str.isdigit, ch)[0]
 			w.appendhold( DIMPLE.gr_t0 )
-			w.tanhRise( DIMPLE.__dict__['gr'+n+'pow0'], DIMPLE.gr_dt, DIMPLE.gr_tau, DIMPLE.gr_shift)
+			
+			correction = DIMPLE.__dict__['gr'+n+'correct']
+			pow0 = correction * DIMPLE.__dict__['gr'+n+'pow0'] 
+			pow1 = correction * DIMPLE.__dict__['gr'+n+'pow1'] 
+			pow2 = correction * DIMPLE.__dict__['gr'+n+'pow2'] 
+			
+			w.tanhRise( pow0, DIMPLE.gr_dt0, DIMPLE.gr_tau, DIMPLE.gr_shift)
 			w.extend( odtpow.dt() )
-			w.appendhold( DIMPLE.compress_t0)
-			w.tanhRise( DIMPLE.__dict__['gr'+n+'pow'], DIMPLE.compress_dt, DIMPLE.gr_tau, DIMPLE.gr_shift)
+			w.appendhold( DIMPLE.gr_t1)
+			w.tanhRise( pow1, DIMPLE.gr_dt1, DIMPLE.gr_tau, DIMPLE.gr_shift)
+			w.appendhold( DIMPLE.gr_t2)
+			w.tanhRise( pow2, DIMPLE.gr_dt2, DIMPLE.gr_tau, DIMPLE.gr_shift)
 			
 		else:
 			print "Error ramping up IR,GR beams in crossbeam_dimple_evap"
@@ -471,6 +502,9 @@ def crossbeam_dimple_evap(s, toENDBFIELD,extrawfm=[]):
 	gr1 = rampup('greenpow1')
 	gr2 = rampup('greenpow2')
 	gr3 = rampup('greenpow3')
+	
+	if DIMPLE.odt_pow >= 0.:
+		odtpow.tanhRise( DIMPLE.odt_pow, DIMPLE.odt_dt, DIMPLE.odt_tau, DIMPLE.odt_shift)
 	
 	#---Turn on TTLs
 	s.wait( DIMPLE.ir_t0 )
@@ -495,6 +529,21 @@ def crossbeam_dimple_evap(s, toENDBFIELD,extrawfm=[]):
 	for exwf in extrawfm:
 		exwf.extend(10)
 		wfms.append(exwf)
+		
+	#Print duration of dimple_evap wfms
+	print "\n--- Duration of DIMPLE EVAP wfms"
+	for wfm in wfms:
+		print "%20s = %f" % (wfm.name,  wfm.dt())
+	print ""
+		
+	maxdt = max( [ wfm.dt() for wfm in wfms] )
+	
+	print "\nmaxdt = %f\n" % maxdt
+	for wfm in wfms:
+		wfm.extend( maxdt )
+		print "%20s = %f (ss=%f)" % (wfm.name,  wfm.dt(), wfm.ss)
+	print ""
+
 		
 	s.analogwfm_add(EVAP.evapss,wfms)
 	

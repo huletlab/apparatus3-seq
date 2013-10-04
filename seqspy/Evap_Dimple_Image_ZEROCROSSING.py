@@ -18,10 +18,11 @@ t0=time.time()
 
 import math
  
-import seq, wfm, gen, cnc, odt, andor, highfield_uvmot, manta, lattice
+import seq, wfm, gen, cnc, odt, andor, highfield_uvmot, manta, lattice, physics
 from bfieldwfm import gradient_wave
 #REPORT
 report=gen.getreport()
+gen.get_lattice_webcam_data()
 
     
 #GET SECTION CONTENTS
@@ -70,12 +71,24 @@ s.wait(buffer)
 
 
 # Go to scattering length zero-crossing
-fieldF = EVAP.fieldrampfinal if DIMPLE.image > EVAP.fieldrampt0 else FB.bias
+if DIMPLE.Bramp == 1:
+    fieldF = DIMPLE.B
+else:
+    fieldF = EVAP.fieldrampfinal if DIMPLE.image > EVAP.fieldrampt0 else FB.bias
 bfield = wfm.wave('bfield', fieldF, DIMPLE.analogss)
 if DIMPLE.zct0 > buffer:
     bfield.appendhold( DIMPLE.zct0 - buffer)
 bfield.linear(ZC.zcbias, ZC.zcrampdt)
 bfield.appendhold(ZC.zcdt)
+
+# Proceed to change ANDOR:hfimg0 depending on the imaging bfield
+bfieldG = physics.inv( 'bfield', bfield.y[-1] ) *6.8
+hfimg0 = -1.*(100.0 + 163.7 - 1.414*bfieldG)
+if ANDOR.hfimg0auto == 1: 
+  gen.save_to_report('ANDOR','hfimg0', hfimg0)
+  print "\tNEW  ANDOR:hfimg0 = %.2f MHz\n" %  hfimg0
+
+
 
 #~ shunt = wfm.wave('gradientfield', DIMPLE.finalV, DIMPLE.analogss)
 #~ shunt.extend( odtpow.dt() ) 
@@ -88,12 +101,12 @@ gradient = gradient_wave('gradientfield', 0.0, bfield.ss,volt=0)
 gradient.follow( bfield)
 s.analogwfm_add(DIMPLE.analogss,[bfield,gradient])
 
-s.wait( bfield.dt())
+s.wait( bfield.dt() - ZC.zcrampdt - ZC.zcdt)
 
 if math.fabs(DIMPLE.odt_pow) < 0.001:
     s.digichg('odtttl',0)
 
-s.wait( DIMPLE.zct0 )
+#s.wait( DIMPLE.zct0 )
 
 #At this point turn on the shunt servoing
 #~ s.wait(5.0)
@@ -117,8 +130,99 @@ if ( EVAP.use_field_ramp != 1 or  DIMPLE.image < EVAP.fieldrampt0):
 s.wait(ZC.zcrampdt + ZC.zcdt)
 
 
+#BELOW ONE CAN SELECT BETWEEN SEVERAL EXPERIMENTS ON THE DIMPLE AT ZERO INTERACTIONS
 
 
+#--- Measure dimple frequencies by using gradient induced dipole oscillations
+if DIMPLE.shuntnot == 1 :
+    shuntval = 1 if DIMPLE.shuntttl == 0 else 0
+    s.digichg('gradientfieldttl', shuntval)
+    s.wait(DIMPLE.oscdt)
+    
+#--- Measure dimple frequencies by using a breathing mode obtained by flickering a beam
+elif DIMPLE.flicker:
+    s.digichg('irttl1', DIMPLE.ir1 if DIMPLE.ir1flick == 0 else 0 )
+    s.digichg('irttl2', DIMPLE.ir2 if DIMPLE.ir2flick == 0 else 0 )
+    s.digichg('irttl3', DIMPLE.ir3 if DIMPLE.ir3flick == 0 else 0 )
+    s.wait( DIMPLE.flickdt)
+    s.digichg('irttl1', 0 if DIMPLE.ir1off == 1 else DIMPLE.ir1)
+    s.digichg('irttl2', 0 if DIMPLE.ir2off == 1 else DIMPLE.ir2)
+    s.digichg('irttl3', 0 if DIMPLE.ir3off == 1 else DIMPLE.ir3)
+    s.wait( DIMPLE.oscdt) 
+    
+#--- Measure dimple frequencies by using breathing mode obtained by squeezing atoms
+#--- Squeezing is done using the Agilent function generator
+elif DIMPLE.squeeze:
+    s.digichg('latticemodttl', 1)
+    agilentpulselen = 1.0
+    s.wait(agilentpulselen)
+    s.digichg('latticemodttl', 0)
+    s.wait(-agilentpulselen)
+    s.wait( DIMPLE.oscdt) 
+    
+#--- Measure lattice depth by lattice modulation
+elif DIMPLE.latticemod == 1:
+    
+    #Add some buffer time to allow for ramp loading
+    buffer = 20.0
+    s.wait(buffer) 
+    
+    #First rotators are set
+    lcr1  = lattice.lattice_wave('lcr1', DIMPLE.alpha1,  DIMPLE.analogss)
+    lcr2  = lattice.lattice_wave('lcr2', DIMPLE.alpha2,  DIMPLE.analogss)
+    lcr3  = lattice.lattice_wave('lcr3', DIMPLE.alpha3,  DIMPLE.analogss)
+    
+    lcr1.y = lcr1.y + DIMPLE.alphaV1
+    
+    
+    print "...PREPARING LATTICE MOD:"
+    #Then power is changed on the IR  and GR beams
+    def latticepow(ch):
+        ss = DIMPLE.analogss
+        if 'gr' in ch:
+            n=filter( str.isdigit, ch)[0]
+            chname = 'greenpow' + n
+            correction = DIMPLE.__dict__['gr'+n+'correct']
+        else:
+            chname = ch
+            correction = 1.0
+        #print "Start %s = %f" % (chname, DIMPLE.__dict__[ch])
+        if 'gr' in ch:
+            w = lattice.lattice_wave(chname, correction*DIMPLE.__dict__[ch+'2'], ss) 
+        else:
+            w = lattice.lattice_wave(chname, correction*DIMPLE.__dict__['allirpow'], ss) 
+        
+        w.appendhold( DIMPLE.lattice_t0)
+        #print "Last voltage before tanhRise (%s) =  %f" % (ch,w.last())
+        w.tanhRise( correction*DIMPLE.__dict__[ch+'_v0'], DIMPLE.lattice_dt, DIMPLE.ir_tau, DIMPLE.ir_shift)
+        return w 
+
+    ir1 = latticepow('ir1pow')
+    ir2 = latticepow('ir2pow')
+    ir3 = latticepow('ir3pow')
+    
+    gr1 = latticepow('gr1pow')
+    gr2 = latticepow('gr2pow')
+    gr3 = latticepow('gr3pow')
+    
+    lcr1.extend(ir1.dt())
+    lcr2.extend(ir1.dt())
+    lcr3.extend(ir1.dt())
+
+    
+    wfms = [lcr1,lcr2,lcr3,ir1,ir2,ir3,gr1,gr2,gr3]
+    duration = s.analogwfm_add(DIMPLE.analogss,wfms)
+    
+    s.wait(duration) 
+    
+    #Modulate
+    s.digichg('latticemodttl',DIMPLE.modTTL)
+    s.wait(DIMPLE.latticemod_dt)
+    s.digichg('latticemodttl',0)
+    s.wait(DIMPLE.latticemod_hold)
+    
+    
+    
 
 	
 #########################################

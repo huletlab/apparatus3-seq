@@ -5,4 +5,5 @@
 benchmark/data/
 seqspy/sandbox/ramps
 seqspy/sandbox_2/ramps
+seqspy/sandbox_ernie/ramps
 *.swp
