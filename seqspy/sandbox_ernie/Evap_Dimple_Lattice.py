@@ -19,7 +19,7 @@ t0=time.time()
 
 import math
  
-import seq, wfm, gen, cnc, odt, andor, highfield_uvmot, manta, lattice
+import seq, wfm, gen, cnc, odt, andor, highfield_uvmot, manta, lattice, roundtrip
 
 #REPORT
 report=gen.getreport()
@@ -33,6 +33,7 @@ ANDOR  = gen.getsection('ANDOR')
 DL     = gen.getsection('DIMPLELATTICE')
 MANTA  = gen.getsection('MANTA')
 LATTICEMOD = gen.getsection('LatticeMod')
+RT     = gen.getsection('ROUNDTRIP')
 
 
 
@@ -83,7 +84,15 @@ s, cpowend = odt.crossbeam_dimple_evap(s, toENDBFIELD,analoghfimg)
 
 
 # Ramp up the lattice
-s, noatomswfms, lockwfms, bgdictPRETOF = lattice.dimple_to_lattice(s,cpowend)
+s, noatomswfms, lockwfms, bgdictPRETOF, wfms = lattice.dimple_to_lattice(s,cpowend)
+
+
+if RT.enable == 1:
+    s, noatomswfms, bgdictPRETOF = roundtrip.do_roundtrip(s, wfms)
+#
+
+
+
 
 
 
@@ -97,8 +106,10 @@ s, noatomswfms, lockwfms, bgdictPRETOF = lattice.dimple_to_lattice(s,cpowend)
 #INDICATE WHICH CHANNELS ARE TO BE CONSIDERED FOR THE BACKGROUND
 bglist = ['odtttl','irttl1','irttl2','irttl3','greenttl1','greenttl2','greenttl3']
 bgdict={}
+bgdictPast={}
 for ch in bglist:
     bgdict[ch] = s.digistatus(ch)
+    bgdictPast[ch] = s.get_pastdigichgs( DL.bgRetainDT, ch )
 
 
 #TAKE PICTURES
@@ -143,9 +154,14 @@ if DL.locksmooth == 1 and DL.lock == 0:
     s.wait(-duration0)
 s.wait( -3.*noatomsdt + DL.bgRetainDT)
 print "tcur = ",s.tcur
-if pic1time != s.tcur:
-    print "A time slip has occured and sequence did not"
-    print "return to correct time for picture1"
+#if pic1time != s.tcur:
+if abs(pic1time - s.tcur) > 1e-6:
+    print "pic1time = ",pic1time
+    print "s.tcur   = ",s.tcur
+    s =  "A time slip has occured and sequence did not"
+    s += "\nreturn to correct time for picture1"
+    
+    raise Exception(s)
     exit(1)
 print
 
@@ -174,7 +190,8 @@ if 'andor' in cameras:
           andor.KineticSeries4_SmartBackground( s, ANDOR.exp, DL.light, \
                                                 noatomsdt, bglist,  bgdictPRETOF, \
                                                 trigger='cameratrig',\
-                                                enforcelight = notusearb)
+                                                enforcelight = notusearb,\
+                                                bgdictPAST= bgdictPast )
     print "Current time after Andor1 =", s.tcur
 
 if 'andor2' in cameras:
@@ -184,7 +201,8 @@ if 'andor2' in cameras:
          andor.KineticSeries4_SmartBackground( s, ANDOR.exp, DL.light, \
                                                noatomsdt, bglist, bgdictPRETOF, \
                                                trigger='cameratrig2',\
-                                               enforcelight = notusearb)
+                                               enforcelight = notusearb,\
+                                               bgdictPAST= bgdictPast )
     print "Current time after Andor2 = ", s.tcur	
 
 		
@@ -219,3 +237,4 @@ shutil.copyfile( outputfile,  __file__.split('.')[0]+'.txt')
 s.clear_disk()
         
 __author__ = "Pedro M Duarte"
+print "This is the very end of the sequence file."

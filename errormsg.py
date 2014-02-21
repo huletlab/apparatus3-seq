@@ -3,9 +3,19 @@ from Tkinter import *
 import tkMessageBox
 
 def box(title,msg):
-  window = Tk()
-  window.wm_withdraw()
-  tkMessageBox.showerror(title=title,message=msg, parent=window)  
+  msglen = max( [ len(x) for x in title.split('\n') + msg.split('\n') ] ) 
+
+  print '\n\n' 
+  print '#'*(msglen+12)
+  print '\t',title
+  print '\t',msg
+  print '#'*(msglen+12)
+  print '\n\n' 
+  
+  # This used to be a pop-up window, but it got annoying sometimes 
+  #window = Tk()
+  #window.wm_withdraw()
+  #tkMessageBox.showerror(title=title,message=msg, parent=window)  
 
 
 if __name__ == "__main__":

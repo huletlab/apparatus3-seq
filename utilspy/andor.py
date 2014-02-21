@@ -42,7 +42,7 @@ def OpenShuttersProbe(s):
 	s.digichg('camerashut',1)
 	s.wait(cameraSHUT)
 
-	probeSHUT=50.0#full-on time for the probe shutter
+	probeSHUT=5.0#full-on time for the probe shutter
 	s.wait(-probeSHUT)
 	s.digichg('prshutter',0)
 	s.wait(probeSHUT)
@@ -105,8 +105,6 @@ def AndorKinetics(s,exp,light,flash,trigger='cameratrig'):
 		
 	#print s.digital_chgs_str(1000,100000.,['cameratrig','probe','odtttl','prshutter'])
 
-	
-		
 	#Shine probe light and return to t=0
 	aoSHUT=0.0 #full-on time for the probe ao
 	s.wait(-aoSHUT)
@@ -124,15 +122,11 @@ def AndorKinetics(s,exp,light,flash,trigger='cameratrig'):
 	s.wait(-exp)
 	
 	#print s.digital_chgs_str(1000,100000.,['cameratrig','probe','odtttl','prshutter'])
-	
-	
 	if trigger == 'cameratrig2':
 		preexp = 0.006
 	else:
 		preexp = 0.006
-		
 	preexp = ANDOR.preexp #+ 0.0005
-
 
 	s.wait(-preexp)
 	s.digichg(trigger,1)
@@ -140,13 +134,45 @@ def AndorKinetics(s,exp,light,flash,trigger='cameratrig'):
 	s.wait(trigpulse)
 	s.digichg(trigger,0)
 	s.wait(preexp-trigpulse)
-	
 	#print s.digital_chgs_str(1000,100000.,['cameratrig','probe','odtttl','prshutter'])
-	
 	return s
 
+def AndorKineticsMock(s,exp,light,flash, mock=False,trigger='cameratrig'):
+	logic = 1
+	
+	if logic == 0:
+		off = 1
+		flash = 1 - flash
+	else:
+		off = 0
+		
+	#Shine probe light and return to t=0
+	aoSHUT=0.0 #full-on time for the probe ao
+	s.wait(-aoSHUT)
+        if mock == False:
+	    s.digichg(light,flash)
+	s.wait(aoSHUT+exp)
+        if mock == False:
+	    s.digichg(light,off)
+	s.wait(-exp)
+	
+	#print s.digital_chgs_str(1000,100000.,['cameratrig','probe','odtttl','prshutter'])
+	if trigger == 'cameratrig2':
+		preexp = 0.006
+	else:
+		preexp = 0.006
+	preexp = ANDOR.preexp #+ 0.0005
 
-def KineticSeries4_SmartBackground(s, exp, light, noatoms, bg, bgdictPRETOF=None, trigger='cameratrig',enforcelight=1):
+	s.wait(-preexp)
+	s.digichg(trigger,1)
+	trigpulse=20*s.step
+	s.wait(trigpulse)
+	s.digichg(trigger,0)
+	s.wait(preexp-trigpulse)
+	#print s.digital_chgs_str(1000,100000.,['cameratrig','probe','odtttl','prshutter'])
+	return s
+
+def KineticSeries4_SmartBackground(s, exp, light, noatoms, bg, bgdictPRETOF=None, trigger='cameratrig',enforcelight=1, bgdictPAST=None):
     #Takes a kinetic series of 4 exposures:  atoms, noatoms, atomsref, noatomsref
     
     #print s.digital_chgs_str(1000,100000.,['cameratrig','probe','odtttl','prshutter'])
@@ -196,8 +222,21 @@ def KineticSeries4_SmartBackground(s, exp, light, noatoms, bg, bgdictPRETOF=None
     s.digichg('greenttl3',0)
     
     s.wait(noatoms)
-    
-    if bgdictPRETOF is not None:
+   
+    print "INCLUDING PAST CHANGES FOR DIGITAL CHs BEFORE PICTURE"
+    if bgdictPAST is not None:
+        s.wait(noatoms)
+        curtime = s.tcur 
+        for key in bgdictPAST.keys():
+            if key is not 'tof':
+                print "PAST STCHGS FOR: ", key
+                for stchg in bgdictPAST[key]:
+                    print stchg
+                    s.wait( stchg[0] )
+                    s.digichg( key, stchg[1] )
+                    s.tcur = curtime
+     
+    elif bgdictPRETOF is not None:
         #RESTORE LIGHTS FOR BACKGROUND - PRETOF
         for key in bgdictPRETOF.keys():
             if key is not 'tof':
@@ -216,6 +255,7 @@ def KineticSeries4_SmartBackground(s, exp, light, noatoms, bg, bgdictPRETOF=None
         for key in bgdict.keys():
             s.digichg( key, bgdict[key])
         s.wait(noatoms)
+
         
 
     #PICTURE OF BACKGROUND
@@ -265,7 +305,7 @@ def KineticSeries4_SmartBackground(s, exp, light, noatoms, bg, bgdictPRETOF=None
 
 
 
-def KineticSeries4(s, exp, light, noatoms, trap,trigger='cameratrig'):
+def KineticSeries4(s, exp, light, noatoms, trap,trigger='cameratrig', mock=False):
     #Takes a kinetic series of 4 exposures:  atoms, noatoms, atomsref, noatomsref
     
     #print s.digital_chgs_str(1000,100000.,['cameratrig','probe','odtttl','prshutter'])
@@ -281,7 +321,7 @@ def KineticSeries4(s, exp, light, noatoms, trap,trigger='cameratrig'):
     #print s.digital_chgs_str(1000,100000.,['cameratrig','probe','odtttl','prshutter'])
     
     #PICTURE OF ATOMS
-    s=AndorKinetics(s,exp,light,1,trigger)
+    s=AndorKineticsMock(s,exp,light,1,mock=mock,trigger=trigger)
     
     #print s.digital_chgs_str(1000,100000.,['cameratrig','probe','odtttl','prshutter'])
     
@@ -302,7 +342,7 @@ def KineticSeries4(s, exp, light, noatoms, trap,trigger='cameratrig'):
     s.digichg('odtttl',trap)
     s.wait(noatoms)
     #PICTURE OF BACKGROUND
-    s=AndorKinetics(s,exp,light,1,trigger)
+    s=AndorKineticsMock(s,exp,light,1,mock=mock,trigger=trigger)
     
     s.wait(noatoms*4)
     s.digichg('camerashut',0) 

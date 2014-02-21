@@ -67,9 +67,15 @@ channel_list = [
                  'lattice1V0(Er)',\
                  'lattice2V0(Er)',\
                  'lattice3V0(Er)',\
-                 'lattice1freq(100kHz)',\
-                 'lattice2freq(100kHz)',\
-                 'lattice3freq(100kHz)',\
+                 'lattice1freq_radial(kHz)',\
+                 'lattice2freq_radial(kHz)',\
+                 'lattice3freq_radial(kHz)',\
+                 'gr1freq_radial(kHz)',\
+                 'gr2freq_radial(kHz)',\
+                 'gr3freq_radial(kHz)',\
+                 'beam1freq_radial(kHz)',\
+                 'beam2freq_radial(kHz)',\
+                 'beam3freq_radial(kHz)',\
                  't1(Er)',\
                  't2(Er)',\
                  't3(Er)',\
@@ -128,52 +134,74 @@ channel_list = [
 # w03 = 43.6 
 # wGR1 = 43.6
 
+##Lattice Raidla Freqeuncy Calibrations##
+## f^2 (kHz^2) = m * IRPower(mW) + offset
+
+lattice_radial_f_m={}
+lattice_radial_f_m["ir1"]= 1.0/274.6
+lattice_radial_f_m["ir2"]= 1.0/239.2
+lattice_radial_f_m["ir3"]= 1.0/160.7
+lattice_radial_f_offset={} 
+lattice_radial_f_offset["ir1"]= -0.13
+lattice_radial_f_offset["ir2"]= -0.21
+lattice_radial_f_offset["ir3"]= -0.35
+
+##Gr Raidla Freqeuncy Calibrations##
+## delta f^2 (kHz^2) = m * GrPower(mW) 
+
+
+gr_radial_f_m={}
+gr_radial_f_m["gr1"]= -1.0/607.1
+gr_radial_f_m["gr2"]= -1.0/528.9
+gr_radial_f_m["gr3"]= -1.0/480.3
+
 #beam waist
 w0d = {}   
-w0d['ir1pow'] = 50.2 / (0.86**0.25)
-w0d['ir2pow'] = 47.8 / (0.86**0.25)
-w0d['ir3pow'] = 43.9 / (0.86**0.25)
-w0d['greenpow1'] = 43.4
-w0d['greenpow2'] = 42.8
-w0d['greenpow3'] = 41.8
+w0d['ir1pow'] = 47.3 / (0.86**0.25) # was 50.2
+w0d['ir2pow'] = 47.1 / (0.86**0.25) # was 47.8
+w0d['ir3pow'] = 43.7 / (0.86**0.25) # was 43.9
+w0d['greenpow1'] = 42.9#43.8 # was 43.4
+w0d['greenpow2'] = 41.4#40.8 # was 42.8
+w0d['greenpow3'] = 40.4#39.2 # was 41.8
 
 #PD slopes
 # Slopes for IR PD's are from Ernie's calibration plus
 # empirical correction factor from the points we collected
 # when measuring lattice frequencies.  
 m1d = {}
-m1d['ir1pow'] = 4.89e-3
-m1d['ir2pow'] = 5.55e-3
-m1d['ir3pow'] = 5.18e-3
-m1d['greenpow1'] = 6.11e-3
-m1d['greenpow2'] = 4.92e-3
-m1d['greenpow3'] = 5.03e-3
+m1d['ir1pow'] = 4.27e-3#4.38e-3  
+m1d['ir2pow'] = 5.07e-3#5.14e-3  
+m1d['ir3pow'] = 5.02e-3#5.23e-3 
+m1d['greenpow1'] = 5.85e-3#6.09e-3
+m1d['greenpow2'] = 4.58e-3#4.86e-3 
+m1d['greenpow3'] = 4.91e-3#4.91e-3
+ 
 
 #PD offset
 V0d = {}
-V0d['ir1pow'] = 9.17e-3
-V0d['ir2pow'] = 1.93e-2
-V0d['ir3pow'] = 1.06e-3
-V0d['greenpow1'] = 2.64e-2
-V0d['greenpow2'] = 2.22e-2
-V0d['greenpow3'] = 1.01e-2
+V0d['ir1pow'] = 1.35e-2#2.87e-2 
+V0d['ir2pow'] = 8.29e-3#2.40e-2 
+V0d['ir3pow'] = -1.7e-3#-1.59e-3 
+V0d['greenpow1'] = 3.18e-2#5.08e-3 
+V0d['greenpow2'] = 3.19e-2#1.84e-2 
+V0d['greenpow3'] = 1.52e-2#1.52e-2 
 
 #Er max
 ErMaxd = {}
-ErMaxd['ir1pow'] = 56.0
-ErMaxd['ir2pow'] = 81.8
-ErMaxd['ir3pow'] = 102.72
+ErMaxd['ir1pow'] = 88.0
+ErMaxd['ir2pow'] = 88.0
+ErMaxd['ir3pow'] = 100.0
 ErMaxd['greenpow1'] = 8.3
 ErMaxd['greenpow2'] = 10.5
 ErMaxd['greenpow3'] = 32.0
 
 #V max
 VMaxd = {}
-VMaxd['ir1pow'] = 6.8
+VMaxd['ir1pow'] = 8.56
 VMaxd['ir2pow'] = 10.0
 VMaxd['ir3pow'] = 10.0
-VMaxd['greenpow1'] = 3.44
-VMaxd['greenpow2'] = 3.40
+VMaxd['greenpow1'] = 3.12
+VMaxd['greenpow2'] = 3.18
 VMaxd['greenpow3'] = 10.0
 
 #V min Servo
@@ -182,8 +210,8 @@ VMinServod['ir1pow'] = 0.022 + 0.005
 VMinServod['ir2pow'] = 0.019 + 0.005
 VMinServod['ir3pow'] = 0.035 + 0.005
 VMinServod['greenpow1'] = 0.014 + 0.010
-VMinServod['greenpow2'] = 0.020 + 0.005
-VMinServod['greenpow3'] = 0.020 + 0.005
+VMinServod['greenpow2'] = 0.017 + 0.005
+VMinServod['greenpow3'] = 0.01 + 0.005
 
 
 
@@ -589,8 +617,10 @@ class convert:
            
             self.cnvcalib[ch] = lambda val: val
             self.invcalib[ch] = lambda val: val
-            self.physlims[ch] = self.invcalib[ch]( np.array( [ np.amin(xdat), np.amax(xdat) ] ) ) 
-            self.voltlims[ch] = np.array([0., 56.])
+            self.physlims[ch] = self.invcalib[ch]( np.array( [ np.amin(xdat), np.amax(xdat) ] ) )
+            # Max Er for t, U calculation 
+            maxEr = 81. 
+            self.voltlims[ch] = np.array([0., maxEr])
 
         ### SCATTERING LENGTH to BFIELD 
         ch = 'as_to_B' 
@@ -1019,10 +1049,48 @@ class calc:
         elif ch in ['lcr1(alpha)', 'lcr2(alpha)', 'lcr3(alpha)']:
             self.calcwfms[ch] = self.cnvInversion( ch.split('(')[0] )
             return self.calcwfms[ch] 
+	
+
+	### Calculate lattice frequency in radial direction
+ 	### Remember this is only valid when alpha is 1 
+	elif ch in ["lattice1freq_radial(kHz)","lattice2freq_radial(kHz)","lattice3freq_radial(kHz)"]:
+            lch  = ch.split('freq')[0].split("lattice")[1] 
+            Erch = "ir"+lch + 'pow(100mW)' 
+            self.prereq( Erch )
+	    dat = self.calcwfms[Erch]
+	    m = lattice_radial_f_m["ir"+lch]
+	    offset = lattice_radial_f_offset["ir"+lch]
+	    calibration = np.array([(i*100.0*m+offset)**0.5 for i in dat[1]])
+	    self.calcwfms[ch] = (dat[0],calibration)
+            return self.calcwfms[ch] 
+
+	### Calculate GR frequency in radial direction
+	elif ch in ["gr1freq_radial(kHz)","gr2freq_radial(kHz)","gr3freq_radial(kHz)"]:
+            lch  = ch.split('freq')[0].split("gr")[1] 
+            Erch = "greenpow"+lch+'(100mW)' 
+            self.prereq( Erch )
+	    dat = self.calcwfms[Erch]
+	    m = gr_radial_f_m["gr"+lch]
+	    calibration = np.array([(-i*100.0*m)**0.5 for i in dat[1]])
+	    self.calcwfms[ch] = (dat[0],calibration)
+            return self.calcwfms[ch] 
 
 
-
-        ### These start getting more complicated because they have two or more prerequisites
+	### Calculate Compansated Beam frequency in radial direction
+ 	### Remember this is only valid when alpha is 1 
+	elif ch in ["beam1freq_radial(kHz)","beam2freq_radial(kHz)","beam3freq_radial(kHz)"]:
+            lch  = ch.split('freq')[0].split("beam")[1] 
+            Erch = "gr"+lch + 'freq_radial(kHz)' 
+            self.prereq( Erch )
+	    dat = self.calcwfms[Erch]
+            Erch2 = "lattice"+lch + 'freq_radial(kHz)' 
+            self.prereq( Erch2 )
+	    dat2 = self.calcwfms[Erch2]
+	    calibration = np.array([(-i**2+j**2)**0.5 for i,j in zip(dat[1],dat2[1])])
+	    self.calcwfms[ch] = (dat[0],calibration)
+            return self.calcwfms[ch] 
+        
+	### These start getting more complicated because they have two or more prerequisites
         
         ### Calculate lattice depth, frequencies, tunneling rate, wannierFactor
 

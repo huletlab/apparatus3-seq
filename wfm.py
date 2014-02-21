@@ -1,6 +1,5 @@
 import os, sys, seqconf, gen, math, numpy, hashlib, time, physics, errormsg
 
-#~ from convert import cnv
 
 report=gen.getreport()
 

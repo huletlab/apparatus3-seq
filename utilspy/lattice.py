@@ -3,15 +3,13 @@
 ###########################################
 
 import sys
-#~ sys.path.append('L:/software/apparatus3/seq/seq')
-#~ sys.path.append('L:/software/apparatus3/seq/utilspy')
-#~ sys.path.append('L:/software/apparatus3/seq/seqspy')
-#~ sys.path.append('L:/software/apparatus3/convert')
 import seqconf, wfm, gen, math, cnc, time, os, numpy, hashlib, evap, physics, errormsg, odt, bfieldwfm
 import shutil
 import pprint
 import matplotlib as mpl
 mpl.use('Agg') # This is for making the pyplot not complaining when there is no x server
+
+numpy.seterr(all='raise')
 
 import copy
 import re
@@ -26,6 +24,7 @@ DIMPLE = gen.getsection('DIMPLE')
 DL = gen.getsection('DIMPLELATTICE')
 ANDOR  = gen.getsection('ANDOR')
 MANTA  = gen.getsection('MANTA')
+RT = gen.getsection('ROUNDTRIP')
 
 
 
@@ -77,7 +76,11 @@ def rampseg_dt(  seg , dt):
         ramp segment. '''
     dt = float(dt)
     seg =  ','.join( seg )
-    pattern = re.compile(r'\([0-9.]+,[0-9.]+\)')
+    
+    DEBUG_RAMPSEG = True
+    if DEBUG_RAMPSEG:
+        print '\t', seg
+    pattern = re.compile(r'\([0-9.\-]+,[0-9.\-]+\)')
     m = pattern.search( seg )
    
     newseg = ''
@@ -93,12 +96,32 @@ def rampseg_dt(  seg , dt):
     return newseg
 
 def replace_knob(rampstr):
-    for i in range(1,9):
-      if 'knob'+'%1d'%i in DL.__dict__.keys():
-        rampstr = rampstr.replace('?'+'%1d'%i,str(DL.__dict__['knob'+'%1d'%i]))	
+    for i in range(1,100):
+      if 'knob'+'%02d'%i in DL.__dict__.keys():
+        val = DL.__dict__['knob'+'%02d'%i]
+        if type(val) is float:
+            replacestr = str(val)
+        else:
+            try:
+                sec = val.split(':')[0]
+                key = val.split(':')[1]
+                if sec == 'DIMPLE':
+                    replacestr = str(DIMPLE.__dict__[key])
+                elif sec == 'DL' or sec == 'DIMPLELATTICE':
+                    replacestr = str(DL.__dict__[key])
+            except: 
+                print "ERROR parsing knob%02d="%i , val
+                raise
+        rampstr = rampstr.replace('?'+'%02d'%i, replacestr)	
     return rampstr
 def parse_rampstr( rampstr ):
     rampstr = ','.join(rampstr)
+
+    DEBUG_PARSE = True
+    if DEBUG_PARSE:
+        print 
+        print "BEGIN DEBUG parse_rampstr"
+        print rampstr
   
     while '@' in rampstr:
         start = rampstr.find('@') 
@@ -112,11 +135,14 @@ def parse_rampstr( rampstr ):
         # Obtain the specified ramp segment from the report
         try: 
             seg_t0   =  rampstr[ start+1: tok0]
+	    seg_t0   =  replace_knob(seg_t0)  
             seg_key  =  rampstr[ tok0+1: tokf ]
 	    #print DL.__dict__[seg_key]
             seg =  [replace_knob(key) for key in DL.__dict__[seg_key]] 
-	    #seg =  DL.__dict__[seg_key] 
+	    #seg =  DL.__dict__[seg_key]
+            if DEBUG_PARSE:  print "RAWSEGMENT = ", seg 
             newseg =  rampseg_dt( seg, seg_t0 ) 
+            if DEBUG_PARSE:  print "NEWSEGMENT = ", newseg 
             rampstr = rampstr[:start] + newseg + rampstr[tokf+1:] 
         except Exception,e:
             print "Error obtaining @ ramp segment."
@@ -226,8 +252,11 @@ class piecewisefun:
                 if xpt not in self.xr:
                     self.xr.append(xpt)
         if len(self.xr) - 1 != len(fs):
-            print "Error creating piecewisefun for ramp. Program will exit"
-            exit(1) 
+            print self.xr 
+            
+            msg = "Error creating piecewisefun for ramp. Program will exit"
+            print msg 
+            raise Exception(msg)
 
     def __call__(self, x):
         conds =[]
@@ -295,6 +324,9 @@ def dimple_to_lattice(s,cpowend):
     allax = [ax0, ax1, ax2, ax3, ax4, ax5, ax6]
     for ax in allax:
         ax.axvline( DL.image, linewidth = 1., color='black', alpha=0.6)
+        if DL.dthold > 0. : 
+            ax.axvline( DL.image+DL.dthold, linewidth = 1., color='blue', alpha=0.6)
+ 
     
     lw=1.5
     labelx=-0.12
@@ -314,11 +346,12 @@ def dimple_to_lattice(s,cpowend):
     ###########################################      
     
     # Define how we want to ramp up the IR power
-    if DIMPLE.allirpow > 0.:
-      ir_offset = DIMPLE.allirpow
-    else:
-      ir_offset = DIMPLE.ir1pow2
-    ir_ramp, xy_ir, ir =  interpolate_ramp( DL.irpow, yoffset=ir_offset)
+    ##if DIMPLE.allirpow > 0.:
+    ##  ir_offset = DIMPLE.allirpow
+    ##else:
+    ##  ir_offset = DIMPLE.ir1pow2
+    ##ir_ramp, xy_ir, ir =  interpolate_ramp( DL.irpow, yoffset=ir_offset)
+    ir_ramp, xy_ir, ir =  interpolate_ramp( DL.irpow)
     
     dt_ir = numpy.amax( ir[:,0]) - numpy.amin( ir[:,0])
     N_ir = int(math.floor( dt_ir / DL.ss ))
@@ -367,7 +400,8 @@ def dimple_to_lattice(s,cpowend):
 
       print 'gr'+'%d'%i +' offset = %f' % ramp0
 
-      gr_ramp, xy_gr, gr =  interpolate_ramp( ramppts, yoffset=ramp0)
+      #gr_ramp, xy_gr, gr =  interpolate_ramp( ramppts, yoffset=ramp0)
+      gr_ramp, xy_gr, gr =  interpolate_ramp( ramppts)
     
       dt_gr = numpy.amax( gr[:,0]) - numpy.amin( gr[:,0])
       N_gr = int(math.floor( dt_gr / DL.ss ))
@@ -396,7 +430,8 @@ def dimple_to_lattice(s,cpowend):
     for grch in grwfms.keys():
       print grch, " = ", grwfms[grch].shape
     
-    ax0.set_xlim(left=-10., right= ax0.get_xlim()[1]*1.1)   
+    xlim1 = max(ax0.get_xlim()[1]*1.1 , (DL.image + DL.dthold)*1.1)
+    ax0.set_xlim(left=-10., right= xlim1)   
     plt.setp( ax0.get_xticklabels(), visible=False)
     ylim = ax0.get_ylim()
     extra = (ylim[1]-ylim[0])*0.1
@@ -453,7 +488,7 @@ def dimple_to_lattice(s,cpowend):
     
     alpha = (v0/y_ir)**2.
     
-    alpha_advance = 100.
+    alpha_advance = DL.alpha_advance
     N_adv = int(math.floor( alpha_advance / DL.ss))
     
     alpha  = alpha.clip(0.,1.)
@@ -517,6 +552,8 @@ def dimple_to_lattice(s,cpowend):
     ax4.plot( Xnew, U_over_t, lw=lw, color='k', label=r'$U/t$')
     
     ax4.set_xlim( ax0.get_xlim()) 
+    # Set max value for U/t range
+    ax4.set_ylim( 0., min(40., numpy.amax(U_over_t) ) )
     ylim = ax4.get_ylim()
     extra = (ylim[1]-ylim[0])*0.1
     ax4.set_ylim( ylim[0]-extra, ylim[1]+extra )
@@ -542,8 +579,15 @@ def dimple_to_lattice(s,cpowend):
     
     ax5.legend(loc='best',numpoints=1,prop={'size':legsz})
     
-    
-    ax6.plot( Xnew, (tunneling_Er / U_over_t), lw=lw, color='#25D500', label=r'$t^{2}/U\,(E_{r)}$')
+   
+    try: 
+        #Sometimes this fails if U_over_t == 0. 
+        ax6.plot( Xnew, (tunneling_Er / U_over_t), lw=lw, color='#25D500', label=r'$t^{2}/U\,(E_{r)}$')
+    except:
+        #Remove zeroes
+        U_over_t[ U_over_t == 0. ] = 1e-6
+        ax6.plot( Xnew, (tunneling_Er / U_over_t), lw=lw, color='#25D500', label=r'$t^{2}/U\,(E_{r)}$')
+       
     #ax6.set_yscale('log')
     
     ax6.set_xlim( ax0.get_xlim()) 
@@ -679,7 +723,7 @@ def dimple_to_lattice(s,cpowend):
     wfms.append(gradient)
    
     
-    buffer = 40.
+    buffer = 60.
     s.wait(buffer)
     
     
@@ -714,24 +758,26 @@ def dimple_to_lattice(s,cpowend):
 
     bfieldG = physics.inv( 'bfield', bfield.y[bindex]) * 6.8
     hfimg0 = -1.*(100.0 + 163.7 - 1.414*bfieldG)
-   
-    # Find bindex for braggkill time 
-    bindex_BK =  math.floor(-DL.braggkilltime / bfield.ss)
-    bfieldG_BK = physics.inv( 'bfield', bfield.y[-1-bindex_BK]) * 6.8
-    hfimg0_BK =  -1.*(100.0 + 163.7 - 1.414*bfieldG_BK) 
-    DL.braggkill_hfimg = hfimg0_BK - DL.braggkill_hfimg
-    print "\n...Braggkill hfimg modification:\n"
-    print "\tNEW braggkill_hfimg = %.2f MHz" % DL.braggkill_hfimg
+    
+    if(DL.braggkill):
+    	# Find bindex for braggkill time 
+    	bindex_BK =  math.floor(-DL.braggkilltime / bfield.ss)
+    	bfieldG_BK = physics.inv( 'bfield', bfield.y[-1-bindex_BK]) * 6.8
+    	hfimg0_BK =  -1.*(100.0 + 163.7 - 1.414*bfieldG_BK) 
+    	DL.braggkill_hfimg = hfimg0_BK - DL.braggkill_hfimg
+    	print "\n...Braggkill hfimg modification:\n"
+    	print "\tNEW braggkill_hfimg = %.2f MHz" % DL.braggkill_hfimg
 
-    # Find bindex for bragg2kill time 
-    bindex_B2K =  math.floor(-DL.bragg2killtime / bfield.ss)
-    bfieldG_B2K = physics.inv( 'bfield', bfield.y[-1-bindex_B2K]) * 6.8
-    hfimg0_B2K =  -1.*(100.0 + 163.7 - 1.414*bfieldG_B2K) 
-    DL.bragg2kill_hfimg1 = hfimg0_B2K - DL.bragg2kill_hfimg1
-    DL.bragg2kill_hfimg2 = hfimg0_B2K - DL.bragg2kill_hfimg2
-    print "\n...Bragg2kill hfimg modification:\n"
-    print "\tNEW brag2gkill_hfimg1 = %.2f MHz" % DL.bragg2kill_hfimg1
-    print "\tNEW brag2gkill_hfimg2 = %.2f MHz" % DL.bragg2kill_hfimg2
+    if(DL.bragg2kill):
+    	# Find bindex for bragg2kill time 
+    	bindex_B2K =  math.floor(-DL.bragg2killtime / bfield.ss)
+    	bfieldG_B2K = physics.inv( 'bfield', bfield.y[-1-bindex_B2K]) * 6.8
+    	hfimg0_B2K =  -1.*(100.0 + 163.7 - 1.414*bfieldG_B2K) 
+    	DL.bragg2kill_hfimg1 = hfimg0_B2K - DL.bragg2kill_hfimg1
+    	DL.bragg2kill_hfimg2 = hfimg0_B2K - DL.bragg2kill_hfimg2
+    	print "\n...Bragg2kill hfimg modification:\n"
+    	print "\tNEW brag2gkill_hfimg1 = %.2f MHz" % DL.bragg2kill_hfimg1
+    	print "\tNEW brag2gkill_hfimg2 = %.2f MHz" % DL.bragg2kill_hfimg2
     
     
     print "\n...ANDOR:hfimg and hfimg0 will be modified  in report\n"
@@ -842,16 +888,21 @@ def dimple_to_lattice(s,cpowend):
             
         
     
-    N_adv = int(math.floor( alpha_advance / DL.ss))
     
-    alpha_desired = numpy.copy(alpha)
-    
-    
+    print
+    print "###### DT() FOR ALL LATTICE WAVEFORMS ######"
+    print "DL.image = ", DL.image
     for wavefm in wfms:
-        print "%s dt = %f" % (wavefm.name, wavefm.dt())
+        dtstr = "\t%s dt = %f" % (wavefm.name, wavefm.dt()) 
+        print dtstr,
+        if DL.dthold >0.:
+            wavefm.extend( DL.image + DL.dthold )
+            print ''.join([' ']*(-len(dtstr)+30)),
+            print  " ---> extended to dt = %f" % wavefm.dt()
+        else:
+            print
+    print
    
-     
-    
     duration = s.analogwfm_add(DL.ss,wfms)
     
     if DL.image < DIGEXTENSION:
@@ -898,7 +949,10 @@ def dimple_to_lattice(s,cpowend):
         print "Using Bragg Kill"
         s.wait( DL.braggkilltime)
         s = manta.OpenShutterBragg(s,DL.shutterdelay)
-        s.digichg('bragg',1)
+	if DL.kill_leaktest:
+	    s.digichg('bragg',0)
+	else:
+            s.digichg('bragg',1)
         s.wait( DL.braggkilldt)
         s.digichg('brshutter',1) # to close shutter
         s.digichg('bragg',0)
@@ -998,11 +1052,12 @@ def dimple_to_lattice(s,cpowend):
     ## TURN GREEN OFF BEFORE PICTURES
     #########################################
     if DL.greenoff == 1:
-      s.wait( DL.greenoff_t0 ) 
+      backintime = DL.image - DL.greenoff_t0
+      s.wait( -backintime ) 
       s.digichg('greenttl1', 0)
       s.digichg('greenttl2', 0)
       s.digichg('greenttl3', 0)
-      s.wait(-DL.greenoff_t0 ) 
+      s.wait( backintime ) 
 
 
     
@@ -1061,16 +1116,20 @@ def dimple_to_lattice(s,cpowend):
     print "\nChannel status for pictures: PRE-TOF"
     print bgdictPRETOF
     print
-        
+       
+
+ 
     #RELEASE FROM LATTICE
     if DL.tof <= 0.:
         s.wait(1.0+ANDOR.exp)
-    s.digichg('greenttl1',0)
-    s.digichg('greenttl2',0)
-    s.digichg('greenttl3',0)
-    s.digichg('irttl1',0)
-    s.digichg('irttl2',0)
-    s.digichg('irttl3',0)
+
+
+    s.digichg('greenttl1',DIMPLE.gr1 if RT.enable==1 else 0)   
+    s.digichg('greenttl2',DIMPLE.gr2 if RT.enable==1 else 0)
+    s.digichg('greenttl3',DIMPLE.gr3 if RT.enable==1 else 0)
+    s.digichg('irttl1',DIMPLE.ir1 if RT.enable==1 else 0)
+    s.digichg('irttl2',DIMPLE.ir2 if RT.enable==1 else 0)
+    s.digichg('irttl3',DIMPLE.ir3 if RT.enable==1 else 0)
     #RELEASE FROM IR TRAP
     s.digichg('odtttl',0)
     if DL.tof <= 0.:
@@ -1079,7 +1138,7 @@ def dimple_to_lattice(s,cpowend):
     print "TIME WHEN RELEASED FROM LATTICE = ",s.tcur
     s.wait(DL.tof)
     
-    return s, noatomswfms, lockwfmscopy, bgdictPRETOF
+    return s, noatomswfms, lockwfmscopy, bgdictPRETOF, [wfms, alpha_desired]
 
     
     

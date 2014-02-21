@@ -352,7 +352,22 @@ class sequence:
 		#	print "change #%d at %f" % (i+1,self.chgs[i+1].time)
 		i=i-1
 		return self.chgs[i].digi[digitalout.num[name]]
-		
+
+        def get_pastdigichgs( self, pastdt, name):
+            """finds out all the state changes of a digital channel over the
+               last pastdt """
+            i=0
+            while self.chgs[i].time < self.tcur - pastdt:
+            	i = i+1
+            	if i>=len(self.chgs):
+            		break
+            i=i-1
+            stchg = [[ -pastdt, self.chgs[i].digi[digitalout.num[name]] ]]
+            for chg in self.chgs: 
+                if chg.time < self.tcur and chg.time > self.tcur - pastdt:
+                    stchg.append( [ chg.time - self.tcur, chg.digi[ digitalout.num[name] ] ] ) 
+            return stchg
+                
 	def digichg(self,name,state):
 		""" digichg appends to sequence a stchg that consists of 
 			setting the state of a specified DIGITAL_OUT. """		
@@ -503,9 +518,9 @@ class sequence:
 			trigs=[]
 			for dev in devs:
 				trigs.append(device.trigout[dev])
-			#Pulse width is wd times the step size
-			wd = 5
-			self.digpulse(trigs,wd*self.step)
+			#Pulse width is given in ms 
+			wd = math.floor(8.0/ self.step)*self.step
+			self.digpulse(trigs,wd)
 			return w.step*w.length
 		else:
 			return 0

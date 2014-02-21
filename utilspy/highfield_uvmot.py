@@ -80,13 +80,12 @@ def  go_to_highfield(s):
 	s.wait(ENDCNC)
 	s.digichg('quick',0)
 	
-	#---Go back in time, shut down the UVAOM's and open the shutter
+	#---Go back in time, shut down the UVAOM's 
 	#---UVAOM's were on to keep them warm
-	s.wait(-50.0)
+	s.wait(UV.clearaoms)
 	s.digichg('uvaom1',0)
 	s.digichg('uvaom2',0)
-	s.digichg('uvshutter',1)
-	s.wait(50.0)
+	s.wait(-UV.clearaoms)
 	
 	#---Insert ODT overlap 
 	s.wait(-ODT.overlapdt-ODT.servodt)
@@ -103,6 +102,11 @@ def  go_to_highfield(s):
 	
 	#---Turn ON UVAOM's
 	s.wait(UV.delay_uv)
+        #---make sure to open the shutter:
+        s.wait(UV.openshutter)
+	s.digichg('uvshutter',1)
+        s.wait(-UV.openshutter)
+
 	s.digichg('uvaom1',1)
 	s.digichg('uvaom2',1)
 	s.wait(-UV.delay_uv)
@@ -126,7 +130,7 @@ def  go_to_highfield(s):
 	#---Turn OFF UVAOM
 	s.digichg('uvaom1',0)
 	#---Close UV shutter
-	waitshutter=5.0
+	waitshutter=UV.closeshutter
 	s.wait(waitshutter)
 	s.digichg('uvshutter',0)
 	s.wait(-waitshutter)

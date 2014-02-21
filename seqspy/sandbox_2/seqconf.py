@@ -11,7 +11,7 @@ def ramps_dir():
 	return lab+"software/apparatus3/seq/seqspy/sandbox_2/ramps/"
 
 def settings_INI_file():
-	return ConfigObj(lab+"software/apparatus3/main/settings.INI")
+	return ConfigObj(lab+"software/apparatus3/settings.INI")
 
 def clockrate():
     return float(settings_INI_file()["SEQUENCE"]["clockrate"])
@@ -29,16 +29,16 @@ def runnumber():
     return '_sandbox_2'
    
 def systemtxt():
-    return lab+'software/apparatus3/conf/system.txt'
+    return lab+'software/apparatus3/seq/system.txt'
 
 def import_paths():
 	paths=[]
 	if os.name == 'posix':
-	    paths.append(lab+'software/apparatus3/convert')
+	    #paths.append(lab+'software/apparatus3/convert')
 	    paths.append(lab+'software/apparatus3/seq/utilspy')
 	    paths.append(lab+'software/apparatus3/seq')
 	else:
-	    paths.append('L:\\software\\apparatus3\\convert')
+	    #paths.append('L:\\software\\apparatus3\\convert')
 	    paths.append('L:\\software\\apparatus3\\seq\\utilspy')
 	    paths.append('L:\\software\\apparatus3\\seq')
 	return paths

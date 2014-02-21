@@ -159,12 +159,14 @@ class interp1d(object):
         # which values are outside the boundary region.
         below_bounds = x_new < self.x[0]
         above_bounds = x_new > self.x[-1]
+
         
         # !! Could provide more information about which values are out of bounds
         if self.bounds_error and below_bounds.any():
             out_of_bounds_below = None
               
-            msg = "The following values are below the interpolation range: "
+            msg = "Interpolation range = (%.4g,%.4g)\n" % (self.x[0], self.x[-1] )
+            msg += "The following values are below the interpolation range: "
 
             if x_new.ndim < 1:
                 out_of_bounds_below = x_new
@@ -184,7 +186,8 @@ class interp1d(object):
         if self.bounds_error and above_bounds.any():
             out_of_bounds_above = None
               
-            msg = "The following values are above the interpolation range: "
+            msg = "Interpolation range = (%.4g,%.4g)\n" % (self.x[0], self.x[-1] )
+            msg += "The following values are above the interpolation range: "
 
             if x_new.ndim < 1:
                 out_of_bounds_above = x_new

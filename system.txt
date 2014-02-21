@@ -94,8 +94,8 @@ PXI1Slot2/ao2	motpow			0.000
 PXI1Slot2/ao3	lcr1			0.000
 PXI1Slot2/ao4	lcr2			0.000
 PXI1Slot2/ao5	odtpow			0.000
-PXI1Slot2/ao6	bfield			0.000
-PXI1Slot2/ao7	uvdet			3.744
+PXI1Slot2/ao6	uvdet			3.744
+PXI1Slot2/ao7	EXBFIELD			0.000
 Dev1/ao0	repdet			5.000
 Dev1/ao1	trapdet			4.000
 Dev1/ao2	uvpow2			0.0
@@ -114,7 +114,7 @@ PXI1Slot8/ao2	rfmod		0.00
 PXI1Slot8/ao3	analogimg		0.00
 PXI1Slot8/ao4	uvfppiezo	0.00
 PXI1Slot8/ao5	NC6	0.00
-PXI1Slot8/ao6	NC7	0.00
+PXI1Slot8/ao6	bfield	0.00
 PXI1Slot8/ao7	NC8		0.00
 #
 #
@@ -134,8 +134,9 @@ PXI1Slot8/ao7	NC8		0.00
 #---!!!!!!!!!!!!!!!!!!!IMPORTANT NOTE!!!!!!!!!!!!!!!!!!!!!!!!
 #----It seems that it is not working if there are more than two cards as trigger input
 #----Use the remaining PFI input on slot2 and slot8 in the future
+#Dev1		dev1trig		/PXI1Slot2/PFI7
 ANALOG_DEVICE
-PXI1Slot2	slot2trig		/PXI1Slot2/PFI2
+PXI1Slot2	slot2trig		/PXI1Slot8/PFI7
 Dev1		dev1trig		/PXI1Slot2/PFI7
 PXI1Slot7	slot7trig		/PXI1Slot8/PFI2
 PXI1Slot8	slot8trig		/PXI1Slot8/PFI1
@@ -156,9 +157,9 @@ Dev1/ai3	pirani323	-10.000	10.000	10078
 Dev1/ai4	pirani671	-10.000	10.000	10078
 Dev1/ai5	motpower	-10.000	10.000	10078
 Dev1/ai6	tacal	-10.000	10.000	10078
-Dev1/ai7	nc-07	-10.000	10.000	10078
-Dev1/ai8	nc-08	-5.00	5.00	10078
-Dev1/ai9	nc-09	-10.000	10.000	10078
+Dev1/ai7	retro1	-10.000	10.000	10078
+Dev1/ai8	retro2	-5.00	5.00	10078
+Dev1/ai9	retro3	-10.000	10.000	10078
 Dev1/ai10	nc-10	-10.000	10.000	10078
 Dev1/ai11	zsmaster	-10.000	10.000	10078
 Dev1/ai12	motmaster	-10.000	10.000	10078

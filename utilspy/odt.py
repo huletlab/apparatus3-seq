@@ -119,7 +119,11 @@ def odt_evap_field(scale =1.0):
 	if ODT.use_servo == 0:
 		ipganalog.extend( odtpow.dt() )
 	elif ODT.use_servo == 1:
-		ipganalog.follow( odtpow )
+		if ODT.ipgfollow == 1:
+			ipganalog.follow( odtpow ,ODT.ipgmin)
+		else:
+			ipganalog.extend( odtpow.dt() )
+
 
 	maxDT = odtpow.dt()
 	return bfield, odtpow, maxDT, finalcpow, ipganalog
@@ -396,7 +400,10 @@ def odt_evap_field_free(toENDBFIELD, scale =1.0):
 	if ODT.use_servo == 0:
 		ipganalog.extend( odtpow.dt() )
 	elif ODT.use_servo == 1:
-		ipganalog.follow( odtpow )
+		if ODT.ipgfollow == 1:
+			ipganalog.follow( odtpow ,ODT.ipgmin)
+		else:
+			ipganalog.extend( odtpow.dt() )
 
 	maxDT = odtpow.dt()
 	return bfield, odtpow, maxDT, finalcpow, ipganalog
@@ -451,10 +458,14 @@ def crossbeam_dimple_evap(s, toENDBFIELD,extrawfm=[]):
 		if 'ir' in ch:
 			n=filter( str.isdigit, ch)[0]
 			
-			if DIMPLE.allirpow < 0.:
+			if DIMPLE.allirpow < 0. and DIMPLE.loadirpow < 0.:
 				pow0 = DIMPLE.__dict__['ir'+n+'pow0']
 				pow1 = DIMPLE.__dict__['ir'+n+'pow1']
 				pow2 = DIMPLE.__dict__['ir'+n+'pow2']
+                        elif DIMPLE.allirpow < 0. :
+                                pow0 = DIMPLE.loadirpow
+                                pow1 = DIMPLE.loadirpow
+                                pow2 = DIMPLE.__dict__['ir'+n+'pow2']
 			else:
 				pow0 = DIMPLE.allirpow
 				pow1 = DIMPLE.allirpow
@@ -480,7 +491,9 @@ def crossbeam_dimple_evap(s, toENDBFIELD,extrawfm=[]):
 			correction = DIMPLE.__dict__['gr'+n+'correct']
 			pow0 = correction * DIMPLE.__dict__['gr'+n+'pow0'] 
 			pow1 = correction * DIMPLE.__dict__['gr'+n+'pow1'] 
-			pow2 = correction * DIMPLE.__dict__['gr'+n+'pow2'] 
+			pow2 = correction * DIMPLE.__dict__['gr'+n+'pow2']
+
+                        print "GR"+ n + " POWERS = %.2f\t%.2f\t%.2f" % (pow0,pow1,pow2)
 			
 			w.tanhRise( pow0, DIMPLE.gr_dt0, DIMPLE.gr_tau, DIMPLE.gr_shift)
 			w.extend( odtpow.dt() )
@@ -709,9 +722,9 @@ class ipg_wave(wfm.wave):
 		taking care not to go below 20% ipg output power, where
 		the noise spectrum of the laser is increased.
 		"""
-	def follow(self, odtpow):
+	def follow(self, odtpow, ipgmin=50):
 		ipgmargin =  10.; #  5% margin for ipg
-		ipgmin    = 50.; # 20% minimum output power for ipg 
+		ipgmin    = ipgmin; # 20% minimum output power for ipg 
 		# Change to 50 ( 03022012 by Ernie, since we see 20 is noisey on light)
 		odtpowV = numpy.copy(odtpow.y)
 		
